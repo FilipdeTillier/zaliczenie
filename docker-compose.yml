@@ -44,6 +44,22 @@ services:
     networks:
       - rag_network
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    env_file:
+      - frontend/.env
+    depends_on:
+      - backend
+    networks:
+      - rag_network
+
 networks:
   rag_network:
     driver: bridge
