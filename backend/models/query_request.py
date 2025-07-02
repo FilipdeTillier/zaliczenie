@@ -14,3 +14,4 @@ class QueryRequest(BaseModel):
     query: QueryPayload
     collection_name: Optional[str] = None
     use_rag: bool = True
+    use_local: bool = False

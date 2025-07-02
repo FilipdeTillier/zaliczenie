@@ -14,11 +14,23 @@ from models.model_pull_request import ModelPullRequest
 from models.query_request import QueryRequest
 from models.search_query import SearchQuery
 from services.openAiService import OpenAIService
+from swagger_config import custom_openapi
+from services.ollamaService import OllamaService
 
 # Load environment variables
 load_dotenv()
 
-app = FastAPI(title="RAG API")
+app = FastAPI(
+    title="RAG API",
+    description="API for Retrieval-Augmented Generation operations",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json"
+)
+
+# Set custom OpenAPI schema
+app.openapi = lambda: custom_openapi(app)
 
 # Configure CORS
 app.add_middleware(
@@ -70,24 +82,42 @@ async def query_llm(prompt: object):
         return response.json()
 
 async def pull_model(MODEL_NAME_VAL: str = MODEL_NAME_VAL):
-    """Pull a model in the background"""
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{OLLAMA_BASE_URL}/api/pull",
-            json={"name": MODEL_NAME_VAL}
-        )
-        if response.status_code != 200:
-            print(f"Failed to pull model {MODEL_NAME_VAL}: {response.text}")
-            return False
-        return True
+    """Pull a model with timeout handling"""
+    try:
+        async with httpx.AsyncClient(timeout=300.0) as client:  # 5 minutes timeout
+            response = await client.post(
+                f"{OLLAMA_BASE_URL}/api/pull",
+                json={"name": MODEL_NAME_VAL}
+            )
+            if response.status_code != 200:
+                print(f"Failed to pull model {MODEL_NAME_VAL}: {response.text}")
+                return False
+            return True
+    except httpx.TimeoutException:
+        print(f"Timeout while pulling model {MODEL_NAME_VAL}")
+        return False
+    except Exception as e:
+        print(f"Error pulling model {MODEL_NAME_VAL}: {str(e)}")
+        return False
 
 # Endpoints
-@app.get("/")
+@app.get("/", tags=["Health"])
 async def root():
+    """
+    Root endpoint that returns basic API information.
+    """
     return {"message": "Welcome to the RAG API", "model": MODEL_NAME_VAL}
 
-@app.get("/health")
+@app.get("/health", tags=["Health"])
 async def health():
+    """
+    Health check endpoint that verifies the status of all required services.
+    
+    Returns:
+        - Status of the API
+        - Qdrant connection status
+        - Ollama connection status and available models
+    """
     try:
         # Check if Qdrant is reachable
         qdrant_collections = qdrant_client.get_collections()
@@ -112,16 +142,31 @@ async def health():
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Service unhealthy: {str(e)}")
 
-@app.get("/collections")
+@app.get("/collections", tags=["Collections"])
 async def get_collections():
+    """
+    Retrieve all available collections from Qdrant.
+    
+    Returns:
+        List of collection names
+    """
     try:
         collections = qdrant_client.get_collections()
         return {"collections": [c.name for c in collections.collections]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get collections: {str(e)}")
 
-@app.post("/collections")
+@app.post("/collections", tags=["Collections"])
 async def create_collection(collection: Collection):
+    """
+    Create a new collection in Qdrant.
+    
+    Args:
+        collection: Collection configuration including name and vector settings
+        
+    Returns:
+        Success message with collection name
+    """
     try:
         qdrant_client.create_collection(
             collection_name=collection.name,
@@ -134,8 +179,14 @@ async def create_collection(collection: Collection):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create collection: {str(e)}")
 
-@app.get("/models")
+@app.get("/models", tags=["Models"])
 async def get_models():
+    """
+    Retrieve all available models from Ollama.
+    
+    Returns:
+        List of available models
+    """
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(f"{OLLAMA_BASE_URL}/api/tags")
@@ -147,14 +198,36 @@ async def get_models():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get models: {str(e)}")
 
-@app.post("/pull_model")
-async def start_model_pull(request: ModelPullRequest, background_tasks: BackgroundTasks):
+@app.post("/pull_model", tags=["Models"])
+async def start_model_pull(request: ModelPullRequest):
+    """
+    Pull a model from Ollama with timeout handling.
+    
+    Args:
+        request: Model pull request configuration
+        
+    Returns:
+        Success or error message with model name
+    """
     MODEL_NAME_VAL = request.MODEL_NAME_VAL or MODEL_NAME_VAL
-    background_tasks.add_task(pull_model, MODEL_NAME_VAL)
-    return {"status": "success", "message": f"Started pulling model {MODEL_NAME_VAL}"}
+    success = await pull_model(MODEL_NAME_VAL)
+    
+    if success:
+        return {"status": "success", "message": f"Model {MODEL_NAME_VAL} pulled successfully"}
+    else:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to pull model {MODEL_NAME_VAL} - operation timed out or failed"
+        )
 
-@app.get("/model_status")
+@app.get("/model_status", tags=["Models"])
 async def model_status():
+    """
+    Get the current status of model operations.
+    
+    Returns:
+        Current model status
+    """
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(f"{OLLAMA_BASE_URL}/api/status")
@@ -165,16 +238,35 @@ async def model_status():
     except Exception:
         return {"status": "unknown"}
 
-@app.post("/embeddings")
+@app.post("/embeddings", tags=["Documents"])
 async def get_embeddings_for_text(request: EmbeddingRequest):
+    """
+    Generate embeddings for the provided text.
+    
+    Args:
+        request: Text to generate embeddings for
+        
+    Returns:
+        Generated embedding vector and its dimensions
+    """
     try:
         embedding = await generate_embedding(request.text)
         return {"embedding": embedding, "dimensions": len(embedding)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate embeddings: {str(e)}")
 
-@app.post("/documents")
+@app.post("/documents", tags=["Documents"])
 async def index_document(document: Document, collection_name: str):
+    """
+    Index a document in the specified collection.
+    
+    Args:
+        document: Document to index
+        collection_name: Name of the collection to index in
+        
+    Returns:
+        Success message
+    """
     try:
         # Generate embedding for the document
         embedding = await generate_embedding(document.text)
@@ -196,8 +288,17 @@ async def index_document(document: Document, collection_name: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to index document: {str(e)}")
 
-@app.post("/search")
+@app.post("/search", tags=["Search"])
 async def search_documents(query: SearchQuery):
+    """
+    Search for similar documents in a collection.
+    
+    Args:
+        query: Search query configuration
+        
+    Returns:
+        List of similar documents with scores
+    """
     try:
         # Generate embedding for query
         query_embedding = await generate_embedding(query.query)
@@ -223,15 +324,26 @@ async def search_documents(query: SearchQuery):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
 
-@app.post("/query")
+@app.post("/query", tags=["Search"])
 async def query_endpoint(request: QueryRequest):
+    """
+    Query the LLM with optional RAG context.
+    
+    Args:
+        request: Query configuration including messages and RAG settings
+        
+    Returns:
+        LLM response and source documents (if RAG is enabled)
+    """
     print(f"Query request: {request}")
     try:
         if not request.use_rag:
-            # Direct LLM query without RAG
-            openai_service = OpenAIService()
-            response = await openai_service.query_model(messages=request.query.messages, model=request.query.model)
-            # response = await query_llm(request.query)
+            if request.use_local:
+                ollama_service = OllamaService()
+                response = await ollama_service.query_model(request.query)
+            else:    
+                openai_service = OpenAIService()
+                response = await openai_service.query_model(messages=request.query.messages, model=request.query.model)
             return {"response": response, "source_documents": []}
         else:
             # RAG query

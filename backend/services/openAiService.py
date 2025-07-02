@@ -3,6 +3,7 @@ from typing import List, Dict, Any, Optional
 import os
 from dotenv import load_dotenv
 
+
 load_dotenv()
 
 class OpenAIService:
@@ -33,26 +34,28 @@ class OpenAIService:
             
             response = self.service.chat.completions.create(**params)
             
-            return {
-                "id": response.id,
-                "model": response.model,
-                "created": response.created,
-                "choices": [
-                    {
-                        "message": {
-                            "role": choice.message.role,
-                            "content": choice.message.content
-                        },
-                        "finish_reason": choice.finish_reason
-                    }
-                    for choice in response.choices
-                ],
-                "usage": {
-                    "prompt_tokens": response.usage.prompt_tokens,
-                    "completion_tokens": response.usage.completion_tokens,
-                    "total_tokens": response.usage.total_tokens
-                }
-            }
+            # return map_ollama_response(response)
+            return response
+            # return {
+            #     "id": response.id,
+            #     "model": response.model,
+            #     "created": response.created,
+            #     "choices": [
+            #         {
+            #             "message": {
+            #                 "role": choice.message.role,
+            #                 "content": choice.message.content
+            #             },
+            #             "finish_reason": choice.finish_reason
+            #         }
+            #         for choice in response.choices
+            #     ],
+            #     "usage": {
+            #         "prompt_tokens": response.usage.prompt_tokens,
+            #         "completion_tokens": response.usage.completion_tokens,
+            #         "total_tokens": response.usage.total_tokens
+            #     }
+            # }
             
         except Exception as e:
             raise Exception(f"Error querying OpenAI API: {str(e)}") 
