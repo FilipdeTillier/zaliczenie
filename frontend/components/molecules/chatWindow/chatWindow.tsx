@@ -11,12 +11,21 @@ import { mapPayload } from "../../../helpers/payloadMapper";
 import { postLocalLLMMessageService } from "../../../services/chatService";
 import { useFormik } from "formik";
 
+const formikInitialValues: ChatPayload = {
+  inputMessage: [],
+  selectedModel: "",
+  useLocal: true,
+  stream: false,
+  collectionName: "string",
+  useRag: false,
+};
+
 const ChatWindow: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [messagesHistory, setMessagesHistory] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const onSubmit = async (values) => {
+  const onSubmit = async (values: ChatPayload) => {
     if (!values.inputMessage.length) return;
 
     const newUserMessage = values.inputMessage[0];
@@ -48,14 +57,7 @@ const ChatWindow: React.FC = () => {
   };
 
   const formik = useFormik<ChatPayload>({
-    initialValues: {
-      inputMessage: [],
-      selectedModel: "",
-      useLocal: true,
-      stream: false,
-      collectionName: "string",
-      useRag: false,
-    },
+    initialValues: formikInitialValues,
     onSubmit,
     validate: () => ({}),
   });
