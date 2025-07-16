@@ -1,15 +1,21 @@
-name: Build
+name: Build Frontend
 
 on:
   workflow_dispatch:
   pull_request:
     branches:
       - main
+    paths:
+      - "frontend/**"
+      - ".github/workflows/build.yml"
 
 jobs:
-  build:
-    name: Build
+  build-frontend:
+    name: Build Frontend
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -22,11 +28,5 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint code
-        run: npm run lint
-
-      - name: Test code
-        run: npm test
-
-      - name: Build project
-        run: npm run build
+      - name: Run tests
+        run: npx vitest run

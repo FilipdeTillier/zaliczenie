@@ -20,7 +20,18 @@ services:
       - 11434:11434
     networks:
       - rag_network
-    platform: linux/arm64
+    deploy:
+      placement:
+        constraints:
+          - node.platform.arch != arm64
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    environment:
+      - OLLAMA_GPU=true
 
   backend:
     build:
