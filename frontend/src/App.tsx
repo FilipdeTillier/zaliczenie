@@ -1,15 +1,9 @@
 import "./App.css";
 
-import ChatWindow from "../components/molecules/chatWindow/chatWindow";
+import { AppRouter } from "./router";
 
 function App() {
-  return (
-    <>
-      <div className="card">
-        <ChatWindow />
-      </div>
-    </>
-  );
+  return <AppRouter />;
 }
 
 export default App;
