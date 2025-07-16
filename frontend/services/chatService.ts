@@ -1,23 +1,59 @@
-import { ChatPayload, Message } from "../types/chat.types";
+import type { ChatRequest, Message } from "../types/chat.types";
 
-export const postMessage = async (body: ChatPayload): Promise<Message> => {
-  const response = await fetch("http://localhost:8080/query", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
+import type { OllamaResponse } from "../types/ollamaResponse";
+import axios from "axios";
 
-  if (!response.ok) throw new Error("Failed to send message");
+export const postLocalLLMMessageService = async (
+  dataForm: ChatRequest
+): Promise<Message> => {
+  try {
+    const response = await axios.post<{ response: OllamaResponse }>(
+      "http://localhost:8080/query",
+      dataForm
+    );
 
-  const data = await response.json();
+    const { data } = response;
 
-  const assistantMessage: Message = {
-    role: "assistant",
-    content: data.response.choices[0].message.content,
-    timestamp: new Date().toLocaleTimeString(),
-  };
+    const assistantMessage: Message = {
+      role: "assistant",
+      content: data.response.message.content,
+      timestamp: new Date().toLocaleTimeString(),
+    };
 
-  return assistantMessage;
+    return assistantMessage;
+  } catch (err) {
+    throw Error(err);
+  }
+};
+
+export const streamFromOllama = async (dataForm: ChatRequest) => {
+  const response = await axios.post<{ response: OllamaResponse }>(
+    "http://localhost:8080/query",
+    dataForm
+  );
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+
+  while (true) {
+    const { done, value } = await reader.read();
+
+    if (done) break;
+
+    const chunk = decoder.decode(value);
+    const lines = chunk.split("\n");
+
+    for (const line of lines) {
+      if (line.trim()) {
+        try {
+          const data = JSON.parse(line);
+          if (data.response) {
+            console.log(data.response);
+          }
+        } catch (e) {
+          // Ignoruj błędy parsowania
+        }
+      }
+    }
+  }
 };

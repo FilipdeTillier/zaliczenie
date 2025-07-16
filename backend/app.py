@@ -16,6 +16,7 @@ from models.search_query import SearchQuery
 from services.openAiService import OpenAIService
 from swagger_config import custom_openapi
 from services.ollamaService import OllamaService
+from fastapi.responses import StreamingResponse
 
 # Load environment variables
 load_dotenv()
@@ -50,7 +51,7 @@ qdrant_client = QdrantClient(host=qdrant_host, port=qdrant_port)
 ollama_host = os.getenv("OLLAMA_HOST", "localhost")
 ollama_port = os.getenv("OLLAMA_PORT", "11434")
 OLLAMA_BASE_URL = f"http://{ollama_host}:{ollama_port}"
-MODEL_NAME_VAL = os.getenv("MODEL_NAME_VAL", "deepseek-r1:7b")
+MODEL_NAME_VAL = os.getenv("MODEL_NAME_VAL", "deepseek-r1:8b")
 
 # Helper functions
 async def generate_embedding(text: str):
@@ -391,6 +392,7 @@ async def query_endpoint(request: QueryRequest):
             }
             
     except Exception as e:
+        print(e)
         raise HTTPException(status_code=500, detail=f"Query failed: {str(e)}")
 
 if __name__ == "__main__":

@@ -4,6 +4,7 @@ from pydantic import BaseModel
 class Message(BaseModel):
     role: str
     content: str
+    timestamp: str
 
 class QueryPayload(BaseModel):
     model: str

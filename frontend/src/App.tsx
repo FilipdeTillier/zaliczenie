@@ -1,6 +1,6 @@
 import "./App.css";
 
-import ChatWindow from "../components/chatWindow/chatWindow";
+import ChatWindow from "../components/molecules/chatWindow/chatWindow";
 
 function App() {
   return (
