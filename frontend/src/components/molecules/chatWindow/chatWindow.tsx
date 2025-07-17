@@ -1,5 +1,5 @@
 import { Button, ButtonVarinat } from "../../atoms/Button";
-import { ChatPayload, Message } from "../../../types/chat.types";
+import type { ChatPayload, Message } from "../../../types/chat.types";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   postLocalLLMMessageService,
