@@ -16,6 +16,8 @@ from models.search_query import SearchQuery
 from services.openAiService import OpenAIService
 from swagger_config import custom_openapi
 from services.ollamaService import OllamaService
+from services.openAiService import OpenAIService
+from models.openai_response import OpenAIChatRequest
 from fastapi.responses import StreamingResponse
 
 # Load environment variables
@@ -394,6 +396,23 @@ async def query_endpoint(request: QueryRequest):
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500, detail=f"Query failed: {str(e)}")
+
+@app.post("/open_ai/chat")
+async def open_ai_chat(request: OpenAIChatRequest):
+
+    openAiService = OpenAIService()
+
+    try:
+        # Assuming openAiService is available in the scope
+        response = await openAiService.query_model(
+            model=request.model,
+            messages=[message.dict() for message in request.messages]
+        )
+        return {"response": response}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"OpenAI chat failed: {str(e)}")
+
+
 
 if __name__ == "__main__":
     uvicorn.run("app:app", host="0.0.0.0", port=8080, reload=True)

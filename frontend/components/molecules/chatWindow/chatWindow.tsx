@@ -1,6 +1,10 @@
 import { Button, ButtonVarinat } from "../../atoms/Button";
 import { ChatPayload, Message } from "../../../types/chat.types";
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import {
+  postLocalLLMMessageService,
+  postToOpenAIChat,
+} from "../../../services/chatService";
 
 import { ChatLoader } from "../../atoms/ChatLoader/chatLoader";
 import { Checkbox } from "../../atoms/Checkbox/checkbox";
@@ -8,7 +12,6 @@ import { MessagesHistory } from "../MessagesHistory";
 import { ModelDropdown } from "../ModelDropdown/modelDropdown";
 import { Textarea } from "../../atoms/Textarea/textarea";
 import { mapPayload } from "../../../helpers/payloadMapper";
-import { postLocalLLMMessageService } from "../../../services/chatService";
 import { useFormik } from "formik";
 
 const formikInitialValues: ChatPayload = {
@@ -42,7 +45,17 @@ const ChatWindow: React.FC = () => {
 
       formik.setFieldValue("inputMessage", []);
 
-      const response = await postLocalLLMMessageService(payload);
+      let response;
+      if (values.useLocal) {
+        response = await postLocalLLMMessageService(payload);
+      } else {
+        response = await postToOpenAIChat(
+          payload.query.messages,
+          "gpt-3.5-turbo"
+        );
+      }
+
+      console.log(response);
 
       setMessagesHistory([
         ...messagesHistory,

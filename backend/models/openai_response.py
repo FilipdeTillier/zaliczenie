@@ -1,6 +1,14 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 
+class OpenAIMessage(BaseModel):
+    role: str
+    content: str
+
+class OpenAIChatRequest(BaseModel):
+    model: str
+    messages: List[OpenAIMessage]
+
 class OpenAIContentItem(BaseModel):
     type: str
     annotations: Optional[List[Any]] = None
