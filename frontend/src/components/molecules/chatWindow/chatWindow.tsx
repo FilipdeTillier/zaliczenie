@@ -15,8 +15,8 @@ import { mapPayload } from "../../../helpers/payloadMapper";
 import { useFormik } from "formik";
 
 const formikInitialValues: ChatPayload = {
-  inputMessage: [],
-  selectedModel: "",
+  message: [],
+  model: "",
   useLocal: true,
   stream: false,
   collectionName: "string",
@@ -29,9 +29,9 @@ const ChatWindow: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const onSubmit = async (values: ChatPayload) => {
-    if (!values.inputMessage.length) return;
+    if (!values.message.length) return;
 
-    const newUserMessage = values.inputMessage[0];
+    const newUserMessage = values.message[0];
 
     setMessagesHistory((prev) => [...prev, newUserMessage]);
 
@@ -40,10 +40,10 @@ const ChatWindow: React.FC = () => {
     try {
       const payload = mapPayload({
         ...values,
-        inputMessage: [...messagesHistory, newUserMessage],
+        message: [...messagesHistory, newUserMessage],
       });
 
-      formik.setFieldValue("inputMessage", []);
+      formik.setFieldValue("message", []);
 
       let response;
       if (values.useLocal) {
@@ -81,11 +81,11 @@ const ChatWindow: React.FC = () => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [formik.values.inputMessage, isLoading]);
+  }, [formik.values.message, isLoading]);
 
   const handleModelChange = useCallback(
     (model: string) => {
-      formik.setFieldValue("selectedModel", model);
+      formik.setFieldValue("model", model);
       console.log("Selected model:", model);
     },
     [formik]
@@ -98,8 +98,8 @@ const ChatWindow: React.FC = () => {
       <form onSubmit={formik.handleSubmit} className="border-t p-4">
         <div className="flex space-x-2 items-center">
           <Textarea
-            name="inputMessage"
-            value={formik.values.inputMessage
+            name="message"
+            value={formik.values.message
               .map((msg: { role: string; content: string }) => msg.content)
               .join("\n")}
             onChange={(e) => {
@@ -111,13 +111,13 @@ const ChatWindow: React.FC = () => {
                 content: line,
                 timestamp: new Date().toLocaleTimeString(),
               }));
-              formik.setFieldValue("inputMessage", messages);
+              formik.setFieldValue("message", messages);
             }}
             onBlur={formik.handleBlur}
             placeholder="Type your message..."
             error={
-              formik.touched.inputMessage && formik.errors.inputMessage
-                ? (formik.errors.inputMessage as string)
+              formik.touched.message && formik.errors.message
+                ? (formik.errors.message as string)
                 : undefined
             }
             rows={2}
@@ -125,7 +125,7 @@ const ChatWindow: React.FC = () => {
           />
           <ModelDropdown
             onModelChanged={handleModelChange}
-            currentModel={formik.values.selectedModel}
+            currentModel={formik.values.model}
           />
           <div className="flex items-center space-x-2">
             <Checkbox

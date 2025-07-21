@@ -3,18 +3,18 @@ import { ChatPayload, ChatRequest } from "../types/chat.types";
 import type { OpenAIResponse } from "../types/openaiResponse";
 
 export const mapPayload = ({
-  selectedModel,
+  model,
   stream,
-  inputMessage,
+  message,
   collectionName,
   useLocal,
   useRag,
 }: ChatPayload): ChatRequest => {
   return {
     query: {
-      model: selectedModel,
+      model: model,
       stream: stream,
-      messages: inputMessage,
+      messages: message,
     },
     // collection_name: collectionName,
     use_rag: useRag,
