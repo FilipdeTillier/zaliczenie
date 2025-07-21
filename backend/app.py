@@ -1,12 +1,11 @@
 import os
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Body, Query
+from services.qdrantService import QdrantService
+from fastapi import FastAPI, HTTPException, Body, Query
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from qdrant_client import QdrantClient
 from dotenv import load_dotenv
 import httpx
-import time
-import json
 from models.collection import Collection
 from models.document import Document
 from models.embedding_request import EmbeddingRequest
@@ -19,8 +18,12 @@ from services.ollamaService import OllamaService
 from services.openAiService import OpenAIService
 from models.openai_response import OpenAIChatRequest
 from fastapi.responses import StreamingResponse
+from controllers.qdrant_controller import router as vector_database_controller
+from controllers.config_controller import router as config_controller
+from controllers.ollama_controller import router as ollama_controller
 
-# Load environment variables
+QDRANT_COLLECTION_NAME = os.getenv("QDRANT_COLLECTION_NAME", "rag_collection")
+
 load_dotenv()
 
 app = FastAPI(
@@ -32,10 +35,12 @@ app = FastAPI(
     openapi_url="/openapi.json"
 )
 
-# Set custom OpenAPI schema
+app.include_router(vector_database_controller)
+app.include_router(config_controller)
+app.include_router(ollama_controller)
+
 app.openapi = lambda: custom_openapi(app)
 
-# Configure CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # In production, specify exact origins
@@ -48,6 +53,7 @@ app.add_middleware(
 qdrant_host = os.getenv("QDRANT_HOST", "localhost")
 qdrant_port = int(os.getenv("QDRANT_PORT", 6333))
 qdrant_client = QdrantClient(host=qdrant_host, port=qdrant_port)
+qdrant_service = QdrantService(host=qdrant_host, port=qdrant_port)
 
 # Configure Ollama
 ollama_host = os.getenv("OLLAMA_HOST", "localhost")
@@ -103,241 +109,6 @@ async def pull_model(MODEL_NAME_VAL: str = MODEL_NAME_VAL):
         print(f"Error pulling model {MODEL_NAME_VAL}: {str(e)}")
         return False
 
-# Endpoints
-@app.get("/", tags=["Health"])
-async def root():
-    """
-    Root endpoint that returns basic API information.
-    """
-    return {"message": "Welcome to the RAG API", "model": MODEL_NAME_VAL}
-
-# @app.get("/health", tags=["Health"])
-# async def health():
-#     """
-#     Health check endpoint that verifies the status of all required services.
-    
-#     Returns:
-#         - Status of the API
-#         - Qdrant connection status
-#         - Ollama connection status and available models
-#     """
-#     try:
-#         # Check if Qdrant is reachable
-#         qdrant_collections = qdrant_client.get_collections()
-        
-#         # Check if Ollama is reachable
-#         ollama_status = {"status": "unknown"}
-#         try:
-#             async with httpx.AsyncClient(timeout=5.0) as client:
-#                 resp = await client.get(f"{OLLAMA_BASE_URL}/api/tags")
-#                 if resp.status_code == 200:
-#                     ollama_status = {"status": "connected", "models": [m["name"] for m in resp.json().get("models", [])]}
-#                 else:
-#                     ollama_status = {"status": "error", "details": resp.text}
-#         except Exception as e:
-#             ollama_status = {"status": "error", "details": str(e)}
-        
-#         return {
-#             "status": "healthy" if ollama_status["status"] == "connected" else "degraded", 
-#             "qdrant": {"status": "connected", "collections": len(qdrant_collections.collections)},
-#             "ollama": ollama_status
-#         }
-#     except Exception as e:
-#         raise HTTPException(status_code=503, detail=f"Service unhealthy: {str(e)}")
-
-# @app.get("/collections", tags=["Collections"])
-# async def get_collections():
-#     """
-#     Retrieve all available collections from Qdrant.
-    
-#     Returns:
-#         List of collection names
-#     """
-#     try:
-#         collections = qdrant_client.get_collections()
-#         return {"collections": [c.name for c in collections.collections]}
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Failed to get collections: {str(e)}")
-
-# @app.post("/collections", tags=["Collections"])
-# async def create_collection(collection: Collection):
-#     """
-#     Create a new collection in Qdrant.
-    
-#     Args:
-#         collection: Collection configuration including name and vector settings
-        
-#     Returns:
-#         Success message with collection name
-#     """
-#     try:
-#         qdrant_client.create_collection(
-#             collection_name=collection.name,
-#             vectors_config={
-#                 "size": collection.vector_size,
-#                 "distance": collection.distance,
-#             }
-#         )
-#         return {"status": "success", "message": f"Collection {collection.name} created"}
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Failed to create collection: {str(e)}")
-
-@app.get("/search_model", tags=["Models"])
-async def search_model(
-    search: str = Query(None, description="Search for models by name or description."),
-    model_identifier: str = Query(None, description="Filter models by identifier."),
-    namespace: str = Query(None, description="Filter models by namespace."),
-    capability: str = Query(None, description="Filter models by capability."),
-    model_type: str = Query(None, description="Filter models by type. Valid values: official, community."),
-    sort_by: str = Query(None, description="Sort the results by a specific field. Valid fields: pulls, last_updated."),
-    order: str = Query(None, description="Sort order. Valid values: asc, desc."),
-    limit: int = Query(20, description="Number of results to return. Default is 20."),
-    skip: int = Query(0, description="Number of results to skip. Default is 0."),
-):
-    """
-    Search for models from the OllamaDB public model registry.
-
-    Returns:
-        List of models and metadata from https://ollamadb.dev/api/v1/models
-    """
-    url = "https://ollamadb.dev/api/v1/models"
-    params = {}
-    if search is not None:
-        params["search"] = search
-    if model_identifier is not None:
-        params["model_identifier"] = model_identifier
-    if namespace is not None:
-        params["namespace"] = namespace
-    if capability is not None:
-        params["capability"] = capability
-    if model_type is not None:
-        params["model_type"] = model_type
-    if sort_by is not None:
-        params["sort_by"] = sort_by
-    if order is not None:
-        params["order"] = order
-    if limit is not None:
-        params["limit"] = limit
-    if skip is not None:
-        params["skip"] = skip
-
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(url, params=params)
-            if resp.status_code == 200:
-                return resp.json()
-            else:
-                # Return the error status and content from the upstream API
-                return {
-                    "status_code": resp.status_code,
-                    "error": resp.text
-                }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to search models: {str(e)}")
-
-
-@app.post("/api/pull", tags=["Models"])
-async def pull_model_endpoint(
-    model: str = Body(..., embed=True, description="Name of the model to pull"),
-    insecure: bool = Body(False, embed=True, description="Allow insecure connections to the library. Only use this if you are pulling from your own library during development."),
-    stream: bool = Body(True, embed=True, description="If false, the response will be returned as a single response object, rather than a stream of objects")
-):
-    """
-    Pull a model from the Ollama library.
-
-    Downloads a model from the Ollama library. Cancelled pulls are resumed from where they left off, and multiple calls will share the same download progress.
-
-    Args:
-        model: Name of the model to pull (required)
-        insecure: Allow insecure connections to the library (optional)
-        stream: If false, the response will be returned as a single response object, rather than a stream of objects (optional)
-
-    Returns:
-        Streaming JSON objects with pull progress, or a single JSON object if stream is false.
-    """
-    url = f"{OLLAMA_BASE_URL}/api/pull"
-    payload = {
-        "model": model,
-        "insecure": insecure,
-        "stream": stream
-    }
-
-    async def stream_response():
-        async with httpx.AsyncClient(timeout=None) as client:
-            async with client.stream("POST", url, json=payload) as response:
-                async for line in response.aiter_lines():
-                    if line.strip():
-                        yield line + "\n"
-
-    try:
-        if stream:
-            return StreamingResponse(stream_response(), media_type="application/json")
-        else:
-            async with httpx.AsyncClient(timeout=None) as client:
-                resp = await client.post(url, json=payload)
-                return resp.json()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to pull model: {str(e)}")
-
-
-@app.get("/models", tags=["Models"])
-async def get_models():
-    """
-    Retrieve all available models from Ollama.
-    
-    Returns:
-        List of available models
-    """
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(f"{OLLAMA_BASE_URL}/api/tags")
-            if resp.status_code == 200:
-                models = resp.json()
-                return {"models": models.get("models", [])}
-            else:
-                raise HTTPException(status_code=resp.status_code, detail="Failed to get models from Ollama")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get models: {str(e)}")
-
-@app.post("/pull_model", tags=["Models"])
-async def start_model_pull(request: ModelPullRequest):
-    """
-    Pull a model from Ollama with timeout handling.
-    
-    Args:
-        request: Model pull request configuration
-        
-    Returns:
-        Success or error message with model name
-    """
-    MODEL_NAME_VAL = request.MODEL_NAME_VAL or MODEL_NAME_VAL
-    success = await pull_model(MODEL_NAME_VAL)
-    
-    if success:
-        return {"status": "success", "message": f"Model {MODEL_NAME_VAL} pulled successfully"}
-    else:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to pull model {MODEL_NAME_VAL} - operation timed out or failed"
-        )
-
-@app.get("/model_status", tags=["Models"])
-async def model_status():
-    """
-    Get the current status of model operations.
-    
-    Returns:
-        Current model status
-    """
-    try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(f"{OLLAMA_BASE_URL}/api/status")
-            if resp.status_code == 200:
-                return resp.json()
-            else:
-                return {"status": "unknown"}
-    except Exception:
-        return {"status": "unknown"}
 
 # @app.post("/embeddings", tags=["Documents"])
 # async def get_embeddings_for_text(request: EmbeddingRequest):

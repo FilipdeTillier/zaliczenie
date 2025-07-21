@@ -13,8 +13,8 @@ export const QuerySchema = z.object({
 });
 
 export const ChatPayloadSchema = z.object({
-  inputMessage: z.array(MessageSchema),
-  selectedModel: z.string(),
+  message: z.array(MessageSchema),
+  model: z.string(),
   useLocal: z.boolean(),
   stream: z.boolean(),
   collectionName: z.string(),
