@@ -1,0 +1,164 @@
+# Cursor Rules – Backend (Python, FastAPI, TensorFlow, Qdrant, RAG Core)
+
+> Place this file at repo root as `.cursorrules.backend` (or `backend/.cursorrules` if you keep separate folders).  
+> Scope: server-side services, ML/RAG pipeline, infra, security, CI/CD.
+
+---
+
+## 0. Context
+
+- Domain: Retrieval-Augmented Generation (RAG) platform.
+- Pipeline: ingestion → chunking/embedding → Qdrant vector store → retrieval → LLM answer synthesis → feedback/eval loop.
+- Tech: Python ≥3.11, FastAPI, TensorFlow, Qdrant, OpenTelemetry, MLflow/DVC (or equivalent).
+
+---
+
+## 1. Architecture & Process
+
+1. **Service boundaries**
+   - Independent deployables: `ingestion`, `embedding`, `retrieval-api`, `auth`, `monitoring`, etc.
+   - Each service documents purpose, inputs/outputs, dependencies, SLAs.
+2. **Contracts first**
+   - Define OpenAPI/JSON Schemas before endpoint code. Autogenerate clients for TS UI.
+3. **ADRs**
+   - `/docs/adr/<id>-<slug>.md`: context, decision, options, consequences.
+4. **12‑Factor / Cloud Native**
+   - Env vars for config, stateless processes, logs to stdout, disposability.
+5. **Dev flow**
+   - Short-lived branches (<2 days). Mandatory review. CI must pass: lint, type, tests, security.
+6. **Observability**
+   - Structured logs, traces (OTel), metrics. Trace all external calls and DB ops.
+
+---
+
+## 2. Security & Privacy
+
+- Secrets via Vault/KMS; never commit tokens.
+- Validate & sanitize ALL inputs (headers/query/body/files).
+- HTTPS/TLS only; HSTS enabled. Secure cookies, CSRF for browser-posted forms.
+- CORS: explicit allowlists; never `*` in prod.
+- Encrypt PII/PHI at rest & in transit. Minimize collection.
+- Dependency scans: `pip-audit`, `safety`, `bandit`; CI blocks on high severity.
+- Threat modeling (STRIDE) per service. Document mitigations.
+- LLM/RAG specific: prompt-injection defenses, output filtering, rate limiting.
+
+---
+
+## 3. Python/FastAPI Standards
+
+- Tooling: **ruff** (lint), **black** (format), **mypy --strict** (types).
+- Structure example:
+  ```
+  app/
+    api/
+    core/
+    models/
+    services/
+    workers/
+    ml/
+    tests/
+  ```
+- Routers: use `APIRouter` per domain; dependency injection for auth/db/session.
+- Responses: Pydantic models only; no raw dicts.
+- Async correctness: never block event loop (use threadpools or background tasks).
+- Config typed with Pydantic Settings; validate on startup.
+
+---
+
+## 4. TensorFlow / ML Code
+
+- Separate training vs inference. Never mix in one module.
+- Version datasets & models (MLflow/DVC). Artifacts immutable.
+- Fix random seeds in experiments; log hyperparams/metrics.
+- Provide reproducible preprocessing pipelines.
+- Export inference graphs/models with explicit version numbers.
+
+---
+
+## 5. Qdrant & Retrieval Layer
+
+- Access through repository/service layer (no direct client in routers).
+- Store chunk metadata (source, page, timestamp, checksum).
+- Idempotent ingestion; cache embeddings.
+- Prefer hybrid search (vector + BM25) when recall matters.
+- Re-ranking stage if MRR/Recall dips below thresholds.
+
+---
+
+## 6. Prompting & Generation
+
+- Prompt templates version-controlled. Include system, user, tool prompts.
+- Enforce token budgets; handle truncation explicitly.
+- Insert citations/metadata in answers when possible.
+
+---
+
+## 7. Testing
+
+- Coverage: backend 90% lines/branches; ML pipelines 70%.
+- Types: unit (pure logic), integration (API↔DB/Qdrant), contract tests, E2E (httpx/pytest).
+- ML eval tests guard against quality regressions (faithfulness, relevance).
+
+---
+
+## 8. CI/CD & Tooling
+
+- Pipeline stages: lint → type-check → test → build → security-scan → package/deploy.
+- Pre-commit hooks for fast checks.
+- Semantic commits & automated changelog (semantic-release).
+- Feature flags for risky changes. Blue/Green or Canary deploys + auto rollback.
+
+---
+
+## 9. Performance & Cost
+
+- Track latency + token/Qdrant cost per request. Set & enforce budgets.
+- Batch heavy ops (embedding). Stream responses for large payloads.
+- Cache strategically (Redis, CDN for static).
+
+---
+
+## 10. Documentation & DX
+
+- Root `README.md`: quickstart, architecture diagram, common tasks.
+- `/docs` for deep dives. FastAPI autogen docs exposed but protected in prod.
+- Provide make/just tasks or scripts for common dev flows.
+
+---
+
+## 11. Cursor Behavior (Backend)
+
+- Minimal diffs, always add/ask for tests.
+- Flag magic numbers, unclear names, missing types, blocking calls.
+- Don’t invent env vars or endpoints—mark TODO or ask.
+- Suggest security hardening when missing.
+
+---
+
+## 12. Checklists
+
+### New Endpoint
+
+- [ ] OpenAPI schema & response model
+- [ ] Authn/Authz
+- [ ] Validation & rate limiting
+- [ ] Unit + integration tests
+- [ ] Logging/tracing spans
+- [ ] Docs & changelog entry
+
+### New Model/Embedding Pipeline
+
+- [ ] Data source licensed & documented
+- [ ] Reproducible preprocessing
+- [ ] Baseline metrics saved
+- [ ] Artifact versioned & stored
+- [ ] Rollback plan ready
+
+---
+
+## 13. Updating
+
+- Changes via PR; reviewed by security & architecture owners.
+- Keep content concise; link to deeper docs when needed.
+
+_End of file_

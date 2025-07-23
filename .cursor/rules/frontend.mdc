@@ -1,0 +1,114 @@
+# Cursor Rules – Frontend (TypeScript, React, Redux Toolkit, Formik, React Router)
+
+> Place this file at repo root as `.cursorrules.frontend` (or `frontend/.cursorrules`).  
+> Scope: web UI code, build tooling, client-side security and performance.
+
+---
+
+## 0. Context
+
+- UI for RAG platform: query interface, document upload/feedback, admin dashboards.
+- Stack: TypeScript (strict), React (functional), Redux Toolkit/RTK Query, React Router v6, Formik + Yup, FP principles where practical.
+
+---
+
+## 1. Coding Standards
+
+- TS `"strict": true`. Avoid `any`; no non-null `!` unless justified.
+- Functional components + hooks only.
+- Local UI state with `useState/useReducer`. Global app state in Redux Toolkit slices **only when truly global**.
+- Data fetching/caching: RTK Query (preferred) or SWR if justified.
+- Forms: Formik + Yup. Keep form state local; never in Redux.
+- Immutability & purity: avoid in-place mutations. Consider `fp-ts` or custom Either/Option when complexity warrants.
+- ESLint + Prettier enforced. Include `eslint-plugin-security`, `eslint-plugin-react`, `eslint-plugin-functional`.
+
+---
+
+## 2. Routing
+
+- React Router v6. Use data APIs (`loader`, `action`) where suitable.
+- Code-split routes by feature boundaries. Lazy load heavy views.
+
+---
+
+## 3. Security (Client)
+
+- Strict CSP, no inline scripts/styles.
+- Escape/sanitize any HTML rendered from server/LLM.
+- Avoid storing sensitive data in localStorage; prefer httpOnly cookies.
+- Implement CSRF tokens for state-changing requests when cookies are used.
+- Validate user inputs client-side, but never rely solely on it.
+
+---
+
+## 4. Accessibility & UX
+
+- WCAG AA: keyboard navigation, ARIA roles, focus management.
+- Forms must have labels, error messages, and aria attributes.
+- Use Storybook (or Ladle) for components with accessibility checks.
+
+---
+
+## 5. Testing
+
+- Unit tests for utils, hooks, reducers.
+- Component tests with React Testing Library.
+- E2E with Cypress/Playwright for critical flows.
+- Snapshot tests sparingly; only for stable, low-change components.
+- Coverage target frontend: 80% lines/branches.
+
+---
+
+## 6. Performance
+
+- Measure with Web Vitals. Budgets on bundle size and LCP/CLS/FID.
+- Tree-shakeable imports, dynamic imports for big libs.
+- Memoize expensive computations (useMemo/useCallback) judiciously.
+- Use React Profiler in dev to catch re-render issues.
+
+---
+
+## 7. CI/CD & Tooling
+
+- Same pipeline stages as backend: lint → type-check → test → build → security-scan.
+- Commit hooks validate formatting & linting.
+- Semantic commits & automated changelog.
+
+---
+
+## 8. Documentation & DX
+
+- Component docs in Storybook with examples and controls.
+- `/docs/ui` for design system, patterns, and component usage.
+- Provide a `README.md` in `frontend/` with setup scripts.
+
+---
+
+## 9. Cursor Behavior (Frontend)
+
+- Minimal diffs; generate or update tests when adding components.
+- Suggest accessibility fixes and security hardening.
+- Ask for missing types/props; avoid guessing API shapes.
+- Warn about unnecessary global state or large bundle additions.
+
+---
+
+## 10. Checklists
+
+### New UI Feature
+
+- [ ] Component in Storybook
+- [ ] Strict types; no `any`
+- [ ] Form validation (if applicable)
+- [ ] Accessibility check (ARIA, keyboard nav)
+- [ ] E2E test added/updated
+- [ ] Route added and lazy loaded (if heavy)
+
+---
+
+## 11. Updating
+
+- Propose edits via PR; review by FE lead/design owner.
+- Keep rules concise; link deeper docs.
+
+_End of file_
