@@ -1,1 +1,0 @@
-export { MessagesHistory } from "./MessagesHistory";
