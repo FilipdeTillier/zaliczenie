@@ -11,27 +11,27 @@ services:
     networks:
       - rag_network
 
-  ollama:
-    image: ollama/ollama:latest
-    pull_policy: always
-    tty: true
-    restart: unless-stopped
-    ports:
-      - 11434:11434
-    networks:
-      - rag_network
-    deploy:
-      placement:
-        constraints:
-          - node.platform.arch != arm64
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-    environment:
-      - OLLAMA_GPU=true
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   pull_policy: always
+  #   tty: true
+  #   restart: unless-stopped
+  #   ports:
+  #     - 11434:11434
+  #   networks:
+  #     - rag_network
+  #   deploy:
+  #     placement:
+  #       constraints:
+  #         - node.platform.arch != arm64
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: all
+  #             capabilities: [gpu]
+  #   environment:
+  #     - OLLAMA_GPU=true
 
   backend:
     build:
@@ -46,7 +46,7 @@ services:
       - backend/.env
     depends_on:
       - qdrant
-      - ollama
+      # - ollama
     environment:
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333

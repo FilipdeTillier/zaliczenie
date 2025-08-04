@@ -1,0 +1,179 @@
+# Cursor Rules for Our RAG Platform
+
+These rules guide Cursor’s AI, linters, and humans working on this repo. The goal is **production-grade, secure, testable, observable software** built by senior-level engineers.
+
+> **Golden Principle**: If a rule here conflicts with a framework’s official recommendation, follow the official docs **and update this file** with a short rationale.
+
+---
+## 0. Project Context (read-only for AI)
+- Domain: Retrieval-Augmented Generation (RAG) platform.
+- Core pieces: document ingestion → chunking/embedding → vector DB (Qdrant) → retrieval → LLM orchestration → answer synthesis → feedback loop.
+- Tech stack: **Python, FastAPI, TensorFlow, Qdrant**, **TypeScript/JavaScript, React, Redux Toolkit, React Router, Formik**, functional programming style where reasonable, service-oriented architecture.
+
+---
+## 1. Architectural & Process Rules
+1. **Service boundaries**
+   - Split into independent deployable services: `ingestion`, `embedding`, `retrieval-api`, `ui-web`, `auth`, `monitoring`.
+   - Each service declares: purpose, inputs/outputs, dependencies, SLAs.
+2. **Contracts first**
+   - Define OpenAPI/JSON Schemas before coding endpoints. Autogenerate clients.
+3. **ADR for every non-trivial decision**
+   - Add `/docs/adr/<id>-<title>.md` with context, decision, alternatives, consequences.
+4. **12-Factor & Cloud-Native**
+   - Config via env vars; no secrets in code. Log to stdout. Stateless services.
+5. **Flow of development**
+   - Trunk-based or short-lived branches (<2 days). Mandatory code review. CI must pass: lint, type-check, unit & integration tests, security scans.
+6. **Observability by default**
+   - Structured logs, tracing (OpenTelemetry), metrics, and dashboards. Every external call is traced.
+
+---
+## 2. Security & Privacy (non-negotiable)
+- Secrets via vault/KMS only. Never commit tokens/keys.
+- Validate and sanitize all external inputs (headers, query, body, files) on the server.
+- Enforce HTTPS/TLS everywhere. Use HSTS, secure cookies, CSRF tokens for forms.
+- Enable CORS with explicit allowlists, not `*` in production.
+- Strict Content Security Policy (CSP) for the frontend.
+- PII/PHI data must be encrypted at rest and in transit. Minimize collection.
+- Add dependency scanning (e.g., `pip-audit`, `npm audit`, `bandit`, `safety`). Block CI on high severity issues.
+- Threat modeling: For each service, document STRIDE-style threats and mitigations.
+- LLM/RAG specific: guardrail prompts, output filtering, prompt injection detection, and rate limiting per user/IP.
+
+---
+## 3. Coding Standards – Python (FastAPI, TensorFlow)
+- Python ≥ 3.11. Use **ruff** + **black** for lint/format; **mypy** for typing (strict mode for app code).
+- Directory layout (example):
+  ```text
+  app/
+    api/ (routers, dependencies)
+    core/ (config, logging, security)
+    models/ (pydantic models, ORM)
+    services/ (business logic)
+    workers/ (background tasks)
+    ml/ (tf models, preprocessing)
+    tests/
+  ```
+- FastAPI:
+  - Use `APIRouter` per domain. Dependency injection for auth/db/session.
+  - Response models with `pydantic` (no `dict` returns).
+  - Async I/O for DB/HTTP; no blocking in event loop.
+- TensorFlow / ML code:
+  - Separate training vs inference code paths.
+  - Version datasets and models (MLflow or DVC). Store model artifacts immutably.
+  - Always fix random seeds in experiments; log hyperparams.
+- Qdrant access is wrapped by a repository/service layer; never call the client directly from the router.
+
+---
+## 4. Coding Standards – TypeScript/React
+- TypeScript strict mode (`"strict": true`). No `any`, `!` non-null assertions are discouraged.
+- Prefer functional components + hooks. Avoid class components.
+- State management:
+  - Global: Redux Toolkit slices only when truly global/persisted. Local UI state with `useState/useReducer`.
+  - Async: RTK Query for data fetching/caching.
+- Forms:
+  - Use Formik + Yup schemas. No uncontrolled inputs without reason.
+  - Form state is local; do not put form values in Redux.
+- Routing:
+  - React Router v6. Use `loader`/`action` when possible. Split routes by feature.
+- FP influences:
+  - Pure functions, immutability (no in-place mutation), small composable utilities.
+  - Use `fp-ts` or custom helpers for Either/Option if complexity warrants.
+- ESLint + Prettier enforced. Use `eslint-plugin-security`, `eslint-plugin-react`, `eslint-plugin-functional`.
+
+---
+## 5. RAG-Specific Rules
+1. **Chunking & Embedding**
+   - Document chunk strategy (size, overlap). Store metadata (source, page, time).
+   - Cache embeddings; idempotent ingestion.
+2. **Retrieval**
+   - Default to hybrid search (vector + BM25) if recall is critical.
+   - Use re-ranking if MRR/Recall metrics fall below targets.
+3. **Prompting & Generation**
+   - System & user prompts in version-controlled templates.
+   - Insert citations in outputs when possible. Enforce max tokens; handle truncation gracefully.
+4. **Evaluation Loop**
+   - Maintain datasets of queries/answers. Automate evaluation: faithfulness, relevance, latency.
+   - Human-in-the-loop feedback stored and used to fine-tune or adjust prompts.
+5. **Safety**
+   - Prompt injection detection, sensitive data leak prevention, profanity filters.
+
+---
+## 6. Testing Strategy
+- **Coverage targets**: backend 90% lines/branches, frontend 80%, ML pipelines 70%.
+- Levels:
+  - Unit tests: pure logic, reducers, utilities.
+  - Integration: API ↔ DB/Qdrant, UI ↔ API mocks.
+  - E2E: Cypress/Playwright for UI flows; pytest + httpx for backend.
+  - ML eval tests: ensure model quality regression tests.
+- Contract tests for each service boundary.
+- Snapshot tests are allowed only for stable, low-change components.
+
+---
+## 7. CI/CD & Tooling
+- CI stages: `lint` → `type-check` → `test` → `build` → `security-scan` → `package`.
+- Use pre-commit hooks to run fast linters/formatters.
+- Semantic commits (`type(scope): message`) and Conventional Changelog.
+- Automated versioning & changelog generation (e.g., semantic-release).
+- Feature flags for risky changes.
+- Blue/Green or Canary deployments with automatic rollback.
+
+---
+## 8. Performance & Cost
+- Track latency and cost per request (LLM tokens, vector queries). Budgets defined per service.
+- Batch operations (embedding, writes). Use async streaming responses when large.
+- Cache at appropriate layers: CDN for static, Redis for request-level caching.
+
+---
+## 9. Documentation & DX
+- `README.md` at root: quickstart, architecture diagram, common commands.
+- `/docs` for deeper guides. Auto-generate API docs from FastAPI / OpenAPI.
+- Storybook (or Ladle) for UI components.
+- Every new public API or component must ship with at least one example.
+
+---
+## 10. How Cursor Should Behave
+- Prefer minimal diffs: modify only what’s needed.
+- Always propose tests with new code; if omitted, ask where to put them.
+- Warn when encountering magic numbers, unclear names, or missing types.
+- Surface potential security issues proactively.
+- When asked to generate code, request any missing context (schemas, types, env vars). Offer a safe default but mark it clearly.
+- Never invent API endpoints or env var names; confirm or mark `TODO`.
+
+---
+## 11. Formatting & Conventions Cheat Sheet
+- **Python**: black 88 chars, ruff default rules, mypy strict.
+- **TS/JS**: Prettier default, ESLint airbnb+custom. Max 100 cols.
+- **Imports**: Absolute paths from src root, grouped: stdlib → third-party → internal.
+- **Naming**: snake_case Python, camelCase TS/JS, PascalCase for React components & Types.
+- **Env vars**: `UPPER_SNAKE_CASE`. Centralize in config modules with schemas (pydantic/ zod).
+
+---
+## 12. Checklists
+### New Endpoint Checklist (FastAPI)
+- [ ] OpenAPI schema & response model
+- [ ] Authz/authn check
+- [ ] Input validation & rate limiting
+- [ ] Unit + integration tests
+- [ ] Logging/tracing spans added
+- [ ] Added to API docs & changelog
+
+### New UI Feature Checklist
+- [ ] Component in Storybook
+- [ ] Types defined; no `any`
+- [ ] Form validation (if form)
+- [ ] Accessibility check (aria, keyboard nav)
+- [ ] E2E test added/updated
+
+### New Model/Embedding Pipeline Checklist
+- [ ] Data source documented & licensed
+- [ ] Preprocessing reproducible
+- [ ] Metrics baseline captured
+- [ ] Model artifact versioned & stored
+- [ ] Rollback plan documented
+
+---
+## 13. Updating This File
+- Propose changes via PR. Assign security & architecture owners for review.
+- Keep sections short and reference deeper docs where needed.
+
+--- 
+_End of file_
