@@ -1,5 +1,5 @@
 from qdrant_client import QdrantClient
-from qdrant_client.models import PointStruct, Filter, FieldCondition, MatchValue
+from qdrant_client.models import PointStruct, Filter, FieldCondition, MatchValue, Distance, VectorParams
 import uuid
 import os
 
@@ -52,3 +52,10 @@ class QdrantService:
         """
         collections_response = self.client.get_collections()
         return [c.name for c in collections_response.collections]
+
+    def add_to_database(self, data):
+        self.client.add(
+            collection_name=QDRANT_COLLECTION_NAME,
+            documents=data
+        )
+

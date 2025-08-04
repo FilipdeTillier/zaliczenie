@@ -1,8 +1,9 @@
 import os
 from services.qdrantService import QdrantService
-from fastapi import FastAPI, HTTPException, Body, Query
+from fastapi import FastAPI, HTTPException, Body, Query, UploadFile, File 
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
+from typing import List
 from qdrant_client import QdrantClient
 from dotenv import load_dotenv
 import httpx
@@ -21,6 +22,8 @@ from fastapi.responses import StreamingResponse
 from controllers.qdrant_controller import router as vector_database_controller
 from controllers.config_controller import router as config_controller
 from controllers.ollama_controller import router as ollama_controller
+from services.fileService import files_service
+
 
 QDRANT_COLLECTION_NAME = os.getenv("QDRANT_COLLECTION_NAME", "rag_collection")
 
@@ -108,6 +111,23 @@ async def pull_model(MODEL_NAME_VAL: str = MODEL_NAME_VAL):
     except Exception as e:
         print(f"Error pulling model {MODEL_NAME_VAL}: {str(e)}")
         return False
+
+@app.post("/post_documents", tags=["Files"])
+async def post_documents(files: List[UploadFile] = File(...)):
+    """
+    Accepts multiple files and saves them to the 'backend/files' directory with random names.
+    """
+    if not files or len(files) == 0:
+        raise HTTPException(status_code=400, detail="No files provided.")
+    saved_files = []
+    try:
+        for file in files:
+            random_filename = file.filename
+            file.filename = random_filename
+        saved_files = await files_service.save_files(files)
+        return {"status": "success", "saved_files": saved_files}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error saving files: {str(e)}")
 
 
 # @app.post("/embeddings", tags=["Documents"])
