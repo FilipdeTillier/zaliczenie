@@ -3,10 +3,24 @@ from fastapi import HTTPException, APIRouter
 from models.collection import Collection
 from services.qdrantService import QdrantService
 
+# Determine embedding dimensionality from the TextEmbedding model. If the model
+# or dependency isn't available (e.g. during tests without the optional
+# package), fall back to the previous default size so the application remains
+# functional.
+try:
+    from fastembed import TextEmbedding
+
+    _embedding_model = TextEmbedding()
+    _embedding_dim = len(next(_embedding_model.embed(["dimension check"])))
+except Exception:
+    _embedding_dim = 768
+
 qdrant_host = os.getenv("QDRANT_HOST", "localhost")
 qdrant_port = int(os.getenv("QDRANT_PORT", 6333))
 
-qdrant_service = QdrantService(host=qdrant_host, port=qdrant_port)
+qdrant_service = QdrantService(
+    host=qdrant_host, port=qdrant_port, vector_size=_embedding_dim
+)
 
 router = APIRouter(
     prefix="",

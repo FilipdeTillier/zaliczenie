@@ -13,13 +13,28 @@ class QdrantService:
         self._ensure_collection_exists(vector_size)
 
     def _ensure_collection_exists(self, vector_size):
-        if self.collection_name not in [c.name for c in self.client.get_collections().collections]:
+        """Create or recreate the collection to match the embedding size."""
+        collections = self.client.get_collections().collections
+        if self.collection_name not in [c.name for c in collections]:
             self.client.recreate_collection(
                 collection_name=self.collection_name,
                 vectors_config={"size": vector_size, "distance": "Cosine"}
             )
+        else:
+            info = self.client.get_collection(self.collection_name)
+            existing_size = info.config.params.vectors.size
+            if existing_size != vector_size:
+                self.client.recreate_collection(
+                    collection_name=self.collection_name,
+                    vectors_config={"size": vector_size, "distance": "Cosine"}
+                )
 
     def add_document(self, text, embedding, metadata=None):
+        # Ensure the collection dimensionality matches the embedding being
+        # inserted. This safeguards against attempts to upsert vectors of a
+        # different size than the existing collection configuration.
+        self._ensure_collection_exists(len(embedding))
+
         point = PointStruct(
             id=str(uuid.uuid4()),
             vector=embedding,
