@@ -13,7 +13,7 @@ openai
 unstructured
 tiktoken
 pypdf
-uuid
 numpy
-sentence_transformers 
 fastembed
+SQLAlchemy==2.0.34
+huggingface-hub==0.19.4

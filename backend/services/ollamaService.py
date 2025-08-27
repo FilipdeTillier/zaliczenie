@@ -1,16 +1,14 @@
-import os
 import httpx
 from fastapi import HTTPException
 from typing import List, Dict, Any
-import json
-from .modelHelpers import map_ollama_response
+from const.env_variables import OLLAMA_BASE_URL, OLLAMA_HOST, OLLAMA_PORT, INIT_MODEL_NAME_VAL, MODEL_NAME_VAL
 
 class OllamaService:
     def __init__(self):
-        self.ollama_host = os.getenv("OLLAMA_HOST", "localhost")
-        self.ollama_port = os.getenv("OLLAMA_PORT", "11434")
+        self.ollama_host = OLLAMA_HOST
+        self.ollama_port = OLLAMA_PORT
         self.base_url = f"http://{self.ollama_host}:{self.ollama_port}"
-        self.model = os.getenv("MODEL_NAME_VAL", "deepseek-r1:8b")
+        self.model = MODEL_NAME_VAL
 
     async def query_model(self, query_data) -> Dict[str, Any]:
         """
@@ -68,3 +66,15 @@ class OllamaService:
         Format messages to match Ollama's expected format.
         """
         return messages
+
+    async def query_llm(prompt: object):
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{OLLAMA_BASE_URL}/api/chat",
+                json=prompt if isinstance(prompt, dict) else {"model": MODEL_NAME_VAL, "prompt": str(prompt)},
+                timeout=120,
+            )
+            if response.status_code != 200:
+                raise HTTPException(status_code=response.status_code,
+                                    detail=f"Failed to query LLM: {response.text}")
+            return response.json()

@@ -1,18 +1,9 @@
-import os
 from fastapi import HTTPException, APIRouter
-from models.collection import Collection
 from services.qdrantService import QdrantService
 import httpx
+from const.env_variables import OLLAMA_BASE_URL, MODEL_NAME_VAL, OLLAMA_HOST, OLLAMA_PORT
 
-qdrant_host = os.getenv("QDRANT_HOST", "localhost")
-qdrant_port = int(os.getenv("QDRANT_PORT", 6333))
-ollama_host = os.getenv("OLLAMA_HOST", "localhost")
-ollama_port = os.getenv("OLLAMA_PORT", "11434")
-
-MODEL_NAME_VAL = os.getenv("MODEL_NAME_VAL", "SpeakLeash/bielik-7b-instruct-v0.1-gguf:latest")
-OLLAMA_BASE_URL = f"http://{ollama_host}:{ollama_port}"
-
-qdrant_service = QdrantService(host=qdrant_host, port=qdrant_port)
+qdrant_service = QdrantService(host=OLLAMA_HOST, port=OLLAMA_PORT)
 
 router = APIRouter(
     prefix="",
@@ -37,10 +28,8 @@ async def health():
         - Ollama connection status and available models
     """
     try:
-        # Check if Qdrant is reachable
         qdrant_collections = qdrant_service.get_collections()
         
-        # Check if Ollama is reachable
         ollama_status = {"status": "unknown"}
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:

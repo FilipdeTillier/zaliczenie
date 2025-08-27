@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from datetime import datetime
 
 def map_openai_response(response: Dict[str, Any]) -> Dict[str, Any]:

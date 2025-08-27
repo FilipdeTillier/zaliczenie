@@ -1,14 +1,10 @@
 from openai import OpenAI
 from typing import List, Dict, Any, Optional
-import os
-from dotenv import load_dotenv
-
-
-load_dotenv()
+from const.env_variables import OPENAI_API_KEY
 
 class OpenAIService:
     def __init__(self):
-        self.service = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        self.service = OpenAI(api_key=OPENAI_API_KEY)
 
     async def query_model(
         self,
