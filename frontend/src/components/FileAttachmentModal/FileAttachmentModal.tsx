@@ -1,5 +1,5 @@
 import { File, FileText, Table, Upload, X } from "lucide-react";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 import { Dialog } from "@headlessui/react";
 import type { FileAttachment } from "../../types";
@@ -51,8 +51,20 @@ export const FileAttachmentModal: React.FC<FileAttachmentModalProps> = ({
   const [dragActive, setDragActive] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<FileAttachment[]>([]);
 
-  const handleFileSelect = async (files: FileList | null) => {
+  // Reset state when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedFiles([]);
+      setSelectedFileType("pdf");
+      setDragActive(false);
+      setIsUploading(false);
+      setUploadError(null);
+    }
+  }, [isOpen]);
+
+  const handleFileSelect = (files: FileList | null) => {
     if (!files) return;
 
     const newFiles: FileAttachment[] = [];
@@ -75,18 +87,7 @@ export const FileAttachmentModal: React.FC<FileAttachmentModalProps> = ({
       }
     });
 
-    const updatedFiles = [...currentFiles, ...newFiles];
-    onAttach(updatedFiles);
-
-    try {
-      setUploadError(null);
-      setIsUploading(true);
-      await postDocuments(updatedFiles.map((f) => f.file));
-    } catch {
-      setUploadError("Failed to upload files. Please try again.");
-    } finally {
-      setIsUploading(false);
-    }
+    setSelectedFiles((prev) => [...prev, ...newFiles]);
   };
 
   const handleDrag = (e: React.DragEvent) => {
@@ -118,8 +119,25 @@ export const FileAttachmentModal: React.FC<FileAttachmentModalProps> = ({
   };
 
   const removeFile = (index: number) => {
-    const newFiles = currentFiles.filter((_, i) => i !== index);
-    onAttach(newFiles);
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSave = async () => {
+    if (selectedFiles.length === 0) return;
+
+    try {
+      setUploadError(null);
+      setIsUploading(true);
+      await postDocuments(selectedFiles.map((f) => f.file));
+
+      // Update parent component with selected files
+      onAttach([...currentFiles, ...selectedFiles]);
+      onClose();
+    } catch {
+      setUploadError("Failed to upload files. Please try again.");
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
@@ -222,14 +240,14 @@ export const FileAttachmentModal: React.FC<FileAttachmentModalProps> = ({
               </p>
             </div>
 
-            {/* Current Files */}
-            {currentFiles.length > 0 && (
+            {/* Selected Files */}
+            {selectedFiles.length > 0 && (
               <div className="mt-6">
                 <h4 className="text-sm font-medium text-gray-700 mb-3">
-                  Selected Files ({currentFiles.length})
+                  Selected Files ({selectedFiles.length})
                 </h4>
                 <div className="space-y-2">
-                  {currentFiles.map((file, index) => {
+                  {selectedFiles.map((file, index) => {
                     const config = fileTypeConfig[file.type];
                     const IconComponent = config.icon;
 
@@ -276,8 +294,8 @@ export const FileAttachmentModal: React.FC<FileAttachmentModalProps> = ({
               Cancel
             </button>
             <button
-              onClick={onClose}
-              disabled={currentFiles.length === 0 || isUploading}
+              onClick={handleSave}
+              disabled={selectedFiles.length === 0 || isUploading}
               className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200 flex items-center gap-2"
             >
               {isUploading && (
@@ -302,9 +320,7 @@ export const FileAttachmentModal: React.FC<FileAttachmentModalProps> = ({
                   />
                 </svg>
               )}
-              {isUploading
-                ? "Uploading..."
-                : `Done (${currentFiles.length} files)`}
+              {isUploading ? "Uploading..." : "Save"}
             </button>
           </div>
         </Dialog.Panel>
