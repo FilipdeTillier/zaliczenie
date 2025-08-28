@@ -6,8 +6,8 @@ import type {
   FileAttachment,
   Message,
 } from "../../types";
-import { Field, Form, Formik } from "formik";
-import { Paperclip, Send, Settings, Zap } from "lucide-react";
+import { Field, Form, Formik, type FormikHelpers } from "formik";
+import { Paperclip, Send, Settings, Zap, FileText } from "lucide-react";
 import React, { useState } from "react";
 import {
   addMessage,
@@ -17,6 +17,7 @@ import {
 } from "../../store/chatSlice";
 
 import { FileAttachmentModal } from "../FileAttachmentModal/FileAttachmentModal";
+import { DocumentsModal } from "../DocumentsModal/DocumentsModal";
 import { useAppDispatch } from "../../hooks/useAppDispatch";
 import { useAppSelector } from "../../hooks/useAppSelector";
 import { useSendMessage } from "../../api/chatApi";
@@ -38,13 +39,13 @@ const models = [
 
 export const MessageInput: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { activeConversationId, conversations, isLoading } = useAppSelector(
-    (state) => state.chat
-  );
+  const { activeConversationId, conversations, isLoading, documents } =
+    useAppSelector((state) => state.chat);
   const sendMessageMutation = useSendMessage();
 
   const [isFileModalOpen, setIsFileModalOpen] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<FileAttachment[]>([]);
+  const [isDocumentsModalOpen, setIsDocumentsModalOpen] = useState(false);
 
   const initialValues: Omit<ChatFormData, "attachedFiles"> = {
     message: "",
@@ -54,7 +55,7 @@ export const MessageInput: React.FC = () => {
 
   const handleSubmit = async (
     values: typeof initialValues,
-    { resetForm }: any
+    { resetForm }: FormikHelpers<typeof initialValues>
   ) => {
     if (!values.message.trim()) return;
 
@@ -110,6 +111,7 @@ export const MessageInput: React.FC = () => {
         useRag: values.useRag,
         conversationId,
         attachedFiles: attachedFiles.map((f) => f.file),
+        documents: documents,
       });
 
       const assistantMessage: Message = {
@@ -138,7 +140,7 @@ export const MessageInput: React.FC = () => {
         validationSchema={validationSchema}
         onSubmit={handleSubmit}
       >
-        {({ values, setFieldValue, isValid }) => (
+        {({ values, isValid }) => (
           <Form>
             {/* Controls Row */}
             <div className="flex items-center gap-4 mb-3 pb-3 border-b border-gray-100">
@@ -186,6 +188,20 @@ export const MessageInput: React.FC = () => {
                   ? `${attachedFiles.length} file(s)`
                   : "Attach"}
               </button>
+
+              {/* Browse Saved Documents */}
+              <button
+                type="button"
+                onClick={() => setIsDocumentsModalOpen(true)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors duration-200 ${
+                  documents.length > 0
+                    ? "bg-blue-100 text-blue-700 border border-blue-200"
+                    : "bg-gray-50 text-gray-700 border border-gray-300 hover:bg-gray-100"
+                }`}
+              >
+                <FileText className="w-4 h-4" />
+                {documents.length > 0 ? `${documents.length} saved` : "Browse"}
+              </button>
             </div>
 
             {/* Attached Files Preview */}
@@ -230,11 +246,12 @@ export const MessageInput: React.FC = () => {
                     target.style.height =
                       Math.min(target.scrollHeight, 120) + "px";
                   }}
-                  onKeyDown={(e: React.KeyboardEvent) => {
+                  onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
                       if (isValid && values.message.trim() && !isLoading) {
-                        e.currentTarget.form?.dispatchEvent(
+                        const textarea = e.currentTarget as HTMLTextAreaElement;
+                        textarea.form?.dispatchEvent(
                           new Event("submit", {
                             cancelable: true,
                             bubbles: true,
@@ -264,6 +281,12 @@ export const MessageInput: React.FC = () => {
         onClose={() => setIsFileModalOpen(false)}
         onAttach={handleFileAttachment}
         currentFiles={attachedFiles}
+      />
+
+      {/* Documents Modal */}
+      <DocumentsModal
+        isOpen={isDocumentsModalOpen}
+        onClose={() => setIsDocumentsModalOpen(false)}
       />
     </div>
   );

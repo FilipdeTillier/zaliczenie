@@ -3,6 +3,7 @@ import React, { useState } from "react";
 
 import { Dialog } from "@headlessui/react";
 import type { FileAttachment } from "../../types";
+import { postDocuments } from "../../services/documentsService";
 
 interface FileAttachmentModalProps {
   isOpen: boolean;
@@ -48,8 +49,10 @@ export const FileAttachmentModal: React.FC<FileAttachmentModalProps> = ({
     "pdf" | "docx" | "xlsx"
   >("pdf");
   const [dragActive, setDragActive] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
-  const handleFileSelect = (files: FileList | null) => {
+  const handleFileSelect = async (files: FileList | null) => {
     if (!files) return;
 
     const newFiles: FileAttachment[] = [];
@@ -72,8 +75,18 @@ export const FileAttachmentModal: React.FC<FileAttachmentModalProps> = ({
       }
     });
 
-    onAttach([...currentFiles, ...newFiles]);
-    onClose();
+    const updatedFiles = [...currentFiles, ...newFiles];
+    onAttach(updatedFiles);
+
+    try {
+      setUploadError(null);
+      setIsUploading(true);
+      await postDocuments(updatedFiles.map((f) => f.file));
+    } catch {
+      setUploadError("Failed to upload files. Please try again.");
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleDrag = (e: React.DragEvent) => {
@@ -250,6 +263,9 @@ export const FileAttachmentModal: React.FC<FileAttachmentModalProps> = ({
                 </div>
               </div>
             )}
+            {uploadError && (
+              <p className="mt-4 text-sm text-red-600">{uploadError}</p>
+            )}
           </div>
 
           <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50 rounded-b-xl">
@@ -261,10 +277,34 @@ export const FileAttachmentModal: React.FC<FileAttachmentModalProps> = ({
             </button>
             <button
               onClick={onClose}
-              disabled={currentFiles.length === 0}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200"
+              disabled={currentFiles.length === 0 || isUploading}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200 flex items-center gap-2"
             >
-              Done ({currentFiles.length} files)
+              {isUploading && (
+                <svg
+                  className="animate-spin h-4 w-4 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                  />
+                </svg>
+              )}
+              {isUploading
+                ? "Uploading..."
+                : `Done (${currentFiles.length} files)`}
             </button>
           </div>
         </Dialog.Panel>
