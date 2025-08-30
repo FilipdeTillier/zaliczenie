@@ -15,12 +15,11 @@ def map_ollama_response(response: Dict[str, Any]) -> Dict[str, Any]:
     """
     Maps Ollama response to standardized format matching OpenAI structure.
     """
-    # Convert timestamp string to Unix timestamp
     created_at = datetime.fromisoformat(response["created_at"].replace("Z", "+00:00"))
     created_timestamp = int(created_at.timestamp())
 
     standardized_response = {
-        "id": None,  # Ollama doesn't provide an ID
+        "id": None,
         "model": response["model"],
         "created": created_timestamp,
         "choices": [

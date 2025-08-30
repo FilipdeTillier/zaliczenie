@@ -16,7 +16,7 @@ router = APIRouter(
 async def pull_model(INIT_MODEL_NAME_VAL: str = INIT_MODEL_NAME_VAL):
     """Pull a model with timeout handling"""
     try:
-        async with httpx.AsyncClient(timeout=300.0) as client:  # 5 minutes timeout
+        async with httpx.AsyncClient(timeout=300.0) as client:
             response = await client.post(
                 f"{OLLAMA_BASE_URL}/api/pull",
                 json={"name": INIT_MODEL_NAME_VAL}
@@ -78,7 +78,6 @@ async def search_model(
             if resp.status_code == 200:
                 return resp.json()
             else:
-                # Return the error status and content from the upstream API
                 return {
                     "status_code": resp.status_code,
                     "error": resp.text

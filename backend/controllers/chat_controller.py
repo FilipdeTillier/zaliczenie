@@ -1,15 +1,13 @@
-import os
-from typing import Any
 from fastapi import HTTPException, APIRouter
 
 from services.qdrantService import QdrantService
-from models.query_request import QueryRequest
 from services.openAiService import open_ai_service
-from services.ollamaService import OllamaService
-
 
 from helpers.embeding_helper import embed_texts
-from const.server import app
+
+from qdrant_client import models as qmodels
+
+from models.openai_response import OpenAIChatRequest
 
 from const.env_variables import QDRANT_COLLECTION
 
@@ -18,76 +16,66 @@ router = APIRouter(
     tags=[""]
 )
 
-# def _text_from_query_obj(q: Any) -> str:
-#     if isinstance(q, str):
-#         return q
-#     if hasattr(q, "messages"):
-#         try:
-#             return "\n".join(m.get("content", "") for m in q.messages)
-#         except Exception:
-#             pass
-#     if hasattr(q, "text"):
-#         return str(q.text)
-#     return str(q)
+@router.post("/open_ai/chat")
+async def open_ai_chat(request: OpenAIChatRequest):
+    try:
+        messages = [message.dict() for message in request.messages]
+        
+        if request.documents:
+            user_messages = [m for m in messages if m.get("role") == "user"]
+            if not user_messages:
+                raise HTTPException(status_code=400, detail="No user message found for RAG search.")
+            query = user_messages[-1]["content"]
 
-# # Deprecated
-# @router.post("/query", tags=["Search"])
-# async def query_endpoint(request: QueryRequest):
-#     """
-#     Uwaga: gdy use_rag=True, embedding zapytania robimy tym samym SentenceTransformerem (768D).
-#     """
-#     try:
-#         if not request.use_rag:
-#             if request.use_local:
-#                 ollama_service = OllamaService()
-#                 response = await ollama_service.query_model(request.query)
-#             else:
-#                 response = await open_ai_service.query_model(
-#                     messages=request.query.messages,
-#                     model=request.query.model,
-#                 )
-#             return {"response": response, "source_documents": []}
-#         else:
-#             if not request.collection_name:
-#                 raise HTTPException(status_code=400, detail="Collection name is required for RAG queries")
+            must_conditions = []
+            for doc in request.documents:
+                must_conditions.append(
+                    qmodels.FieldCondition(
+                        key="checksum_sha256",
+                        match=qmodels.MatchValue(value=doc.checksum_sha256)
+                    )
+                )
+            filter_condition = qmodels.Filter(
+                should=must_conditions
+            ) if must_conditions else None
 
-#             query_text = _text_from_query_obj(request.query)
-#             [query_embedding] = embed_texts([query_text])
-#             global _qdrant
-#             client = _qdrant
-#             client = QdrantService.ensure_qdrant_ready()
-#             search_results = client.search(
-#                 collection_name=request.collection_name or QDRANT_COLLECTION,
-#                 query_vector=query_embedding,
-#                 limit=5,
-#             )
+            [query_vec] = embed_texts([query])
 
-#             sources = [
-#                 {
-#                     "score": hit.score,
-#                     "metadata": {k: v for k, v in (hit.payload or {}).items()},
-#                 }
-#                 for hit in search_results
-#             ]
+            client = QdrantService.ensure_qdrant_ready()
 
-#             context_parts = []
-#             for i, src in enumerate(sources):
-#                 text = src["metadata"].get("text", "") or src["metadata"].get("chunk_text", "")
-#                 if text:
-#                     context_parts.append(f"Document {i+1}:\n{text}")
-#             context = "\n\n".join(context_parts)
+            search_params = {
+                "collection_name": QDRANT_COLLECTION,
+                "query_vector": query_vec,
+                "limit": request.max_results or 5,
+                "with_payload": True,
+            }
+            if filter_condition:
+                search_params["query_filter"] = filter_condition
 
-#             prompt = f"""Answer the question based on the provided context.
+            search_results = client.search(**search_params)
 
-#                 Context:
-#                 {context}
+            context_chunks = []
+            for hit in search_results:
+                payload = hit.payload
+                if payload and "chunk_text" in payload:
+                    context_chunks.append(payload["chunk_text"])
+            context = "\n\n".join(context_chunks)
 
-#                 Question: {query_text}
+            context_message = {
+                "role": "system",
+                "content": f"Relevant context from documents:\n{context}" if context else "No relevant context found."
+            }
+            messages_with_context = [context_message] + messages
 
-#                 Answer:"""
-#             ollama_service = OllamaService()
-#             response = await ollama_service.query_llm(prompt)
-#             return {"response": response, "source_documents": sources}
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Query failed: {str(e)}")
-
+            response = await open_ai_service.query_model(
+                model=request.model,
+                messages=messages_with_context,
+            )
+        else:
+            response = await open_ai_service.query_model(
+                model=request.model,
+                messages=messages,
+            )
+        return {"response": response}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"OpenAI chat failed: {str(e)}")

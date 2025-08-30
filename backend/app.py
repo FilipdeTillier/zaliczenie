@@ -1,21 +1,36 @@
 import uvicorn
-from fastapi import HTTPException
 
-from services.openAiService import open_ai_service
-from models.openai_response import OpenAIChatRequest
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-from const.server import app
+from controllers.qdrant_controller import router as vector_database_controller
+from controllers.config_controller import router as config_controller
+from controllers.ollama_controller import router as ollama_controller
+from controllers.files_controller import router as files_controller
+from controllers.chat_controller import router as chat_controller
 
-@app.post("/open_ai/chat")
-async def open_ai_chat(request: OpenAIChatRequest):
-    try:
-        response = await open_ai_service.query_model(
-            model=request.model,
-            messages=[message.dict() for message in request.messages],
-        )
-        return {"response": response}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"OpenAI chat failed: {str(e)}")
+app = FastAPI(
+    title="RAG API",
+    description="API for Retrieval-Augmented Generation operations",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
+)
+
+app.include_router(vector_database_controller)
+app.include_router(config_controller)
+app.include_router(ollama_controller)
+app.include_router(files_controller)
+app.include_router(chat_controller)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 if __name__ == "__main__":

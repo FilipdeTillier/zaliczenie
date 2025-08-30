@@ -85,7 +85,7 @@ async def search_post(
             query_vector=query_vec,
             limit=top_k,
             with_payload=True,
-            score_threshold=score_threshold  # np. 0.35
+            score_threshold=score_threshold 
         ) if flt is None else client.search(
             collection_name=collection_name or QDRANT_COLLECTION,
             query_vector=query_vec,
@@ -104,7 +104,7 @@ async def search_post(
                 "filename": p.get("filename"),
                 "storage_key": p.get("storage_key"),
                 "chunk_index": p.get("chunk_index"),
-                "chunk_text": p.get("chunk_text", ""),  # wymaga, byś zapisywał tekst chunku w payloadzie
+                "chunk_text": p.get("chunk_text", ""),
             })
         return {
             "collection": collection_name or QDRANT_COLLECTION,
