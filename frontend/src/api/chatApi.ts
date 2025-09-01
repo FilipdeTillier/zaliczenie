@@ -1,3 +1,4 @@
+import type { DocumentItem } from "../services/documentsService";
 import type { Message } from "../types";
 import { postToOpenAIChat } from "../services/chatService";
 import { useMutation } from "@tanstack/react-query";
@@ -8,6 +9,7 @@ interface SendMessageRequest {
   useRag: boolean;
   conversationId?: string;
   attachedFiles?: File[];
+  documents: DocumentItem[];
 }
 
 interface SendMessageResponse {
@@ -20,7 +22,11 @@ interface SendMessageResponse {
 const sendMessage = async (
   data: SendMessageRequest
 ): Promise<SendMessageResponse> => {
-  const response = await postToOpenAIChat(data.message, data.model);
+  const response = await postToOpenAIChat(
+    data.message,
+    data.model,
+    data.documents
+  );
 
   return response;
 };

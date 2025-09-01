@@ -1,22 +1,12 @@
 import os
 from fastapi import HTTPException, APIRouter, Body, Query
-from models.collection import Collection
 from services.qdrantService import QdrantService
 import httpx
 from fastapi.responses import StreamingResponse
 from models.model_pull_request import ModelPullRequest
+from const.env_variables import OLLAMA_BASE_URL, OLLAMA_HOST, OLLAMA_PORT, INIT_MODEL_NAME_VAL
 
-qdrant_host = os.getenv("QDRANT_HOST", "localhost")
-qdrant_port = int(os.getenv("QDRANT_PORT", 6333))
-
-ollama_host = os.getenv("OLLAMA_HOST", "localhost")
-ollama_port = os.getenv("OLLAMA_PORT", "11434")
-
-INIT_MODEL_NAME_VAL = os.getenv("INIT_MODEL_NAME_VAL", "SpeakLeash/bielik-7b-instruct-v0.1-gguf:latest")
-OLLAMA_BASE_URL = f"http://{ollama_host}:{ollama_port}"
-
-
-qdrant_service = QdrantService(host=qdrant_host, port=qdrant_port)
+qdrant_service = QdrantService(host=OLLAMA_HOST, port=OLLAMA_PORT)
 
 router = APIRouter(
     prefix="",
@@ -26,7 +16,7 @@ router = APIRouter(
 async def pull_model(INIT_MODEL_NAME_VAL: str = INIT_MODEL_NAME_VAL):
     """Pull a model with timeout handling"""
     try:
-        async with httpx.AsyncClient(timeout=300.0) as client:  # 5 minutes timeout
+        async with httpx.AsyncClient(timeout=300.0) as client:
             response = await client.post(
                 f"{OLLAMA_BASE_URL}/api/pull",
                 json={"name": INIT_MODEL_NAME_VAL}
@@ -88,7 +78,6 @@ async def search_model(
             if resp.status_code == 200:
                 return resp.json()
             else:
-                # Return the error status and content from the upstream API
                 return {
                     "status_code": resp.status_code,
                     "error": resp.text

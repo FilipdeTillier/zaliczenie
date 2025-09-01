@@ -1,6 +1,15 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 
+class Document(BaseModel):
+    filename: str
+    checksum_sha256: str
+    size_bytes: int
+    storage_key: str
+    content_type: str
+    created_at: str
+    download_url: str
+
 class OpenAIMessage(BaseModel):
     role: str
     content: str
@@ -8,6 +17,8 @@ class OpenAIMessage(BaseModel):
 class OpenAIChatRequest(BaseModel):
     model: str
     messages: List[OpenAIMessage]
+    documents: Optional[List[Document]] = Field(default_factory=list, description="List of documents to search in Qdrant")
+    max_results: Optional[int] = Field(default=5, ge=1, le=20, description="Maximum number of results to return from Qdrant search")
 
 class OpenAIContentItem(BaseModel):
     type: str

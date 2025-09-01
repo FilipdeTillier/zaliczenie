@@ -41,7 +41,7 @@ services:
       - "8080:8080"
     volumes:
       - ./backend:/app
-      - ./requirements.txt:/app/requirements.txt
+      - uploads:/data/uploads
     env_file:
       - backend/.env
     depends_on:
@@ -52,8 +52,12 @@ services:
       - QDRANT_PORT=6333
       - OLLAMA_HOST=ollama
       - OLLAMA_PORT=11434
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+      - ENVIRONMENT=development
     networks:
       - rag_network
+    user: "0:0"
 
   frontend:
     build:
@@ -80,3 +84,4 @@ volumes:
     driver: local
   ollama_data:
     driver: local
+  uploads:

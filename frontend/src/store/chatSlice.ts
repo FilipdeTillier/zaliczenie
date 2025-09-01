@@ -1,5 +1,6 @@
 import type { ChatState, Conversation, Message } from "../types";
 
+import type { DocumentItem } from "../services/documentsService";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import { createSlice } from "@reduxjs/toolkit";
 
@@ -7,6 +8,7 @@ const initialState: ChatState = {
   conversations: [],
   activeConversationId: null,
   isLoading: false,
+  documents: [],
 };
 
 const chatSlice = createSlice({
@@ -46,6 +48,27 @@ const chatSlice = createSlice({
         conversation.title = action.payload.title;
       }
     },
+    addDocuments: (state, action: PayloadAction<DocumentItem[]>) => {
+      // Add documents that aren't already in the state
+      action.payload.forEach((doc) => {
+        if (
+          !state.documents.find(
+            (d) => d.checksum_sha256 === doc.checksum_sha256
+          )
+        ) {
+          state.documents.push(doc);
+        }
+      });
+    },
+    removeDocuments: (state, action: PayloadAction<string[]>) => {
+      // Remove documents by checksum
+      state.documents = state.documents.filter(
+        (doc) => !action.payload.includes(doc.checksum_sha256)
+      );
+    },
+    setDocuments: (state, action: PayloadAction<DocumentItem[]>) => {
+      state.documents = action.payload;
+    },
   },
 });
 
@@ -55,6 +78,9 @@ export const {
   addMessage,
   setLoading,
   updateConversationTitle,
+  addDocuments,
+  removeDocuments,
+  setDocuments,
 } = chatSlice.actions;
 
 export default chatSlice.reducer;

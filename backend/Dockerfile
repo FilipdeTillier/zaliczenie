@@ -1,6 +1,9 @@
 FROM python:3.10-slim
 
+
 WORKDIR /app
+
+# RUN  pip install --upgrade pip
 
 RUN apt-get update && apt-get install -y \
     build-essential \
@@ -17,4 +20,5 @@ USER appuser
 
 EXPOSE 8080
 
-CMD ["python", "app.py"]
+# Use uvicorn with reload for hot reload functionality
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8080", "--reload", "--reload-dir", "/app"]

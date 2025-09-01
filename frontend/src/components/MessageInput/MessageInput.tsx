@@ -6,17 +6,19 @@ import type {
   FileAttachment,
   Message,
 } from "../../types";
-import { Field, Form, Formik } from "formik";
-import { Paperclip, Send, Settings, Zap } from "lucide-react";
+import { Field, Form, Formik, type FormikHelpers } from "formik";
+import { Paperclip, Send, Settings, Zap, FileText } from "lucide-react";
 import React, { useState } from "react";
 import {
   addMessage,
   createConversation,
   setLoading,
   updateConversationTitle,
+  removeDocuments,
 } from "../../store/chatSlice";
 
 import { FileAttachmentModal } from "../FileAttachmentModal/FileAttachmentModal";
+import { DocumentsModal } from "../DocumentsModal/DocumentsModal";
 import { useAppDispatch } from "../../hooks/useAppDispatch";
 import { useAppSelector } from "../../hooks/useAppSelector";
 import { useSendMessage } from "../../api/chatApi";
@@ -38,13 +40,13 @@ const models = [
 
 export const MessageInput: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { activeConversationId, conversations, isLoading } = useAppSelector(
-    (state) => state.chat
-  );
+  const { activeConversationId, conversations, isLoading, documents } =
+    useAppSelector((state) => state.chat);
   const sendMessageMutation = useSendMessage();
 
   const [isFileModalOpen, setIsFileModalOpen] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<FileAttachment[]>([]);
+  const [isDocumentsModalOpen, setIsDocumentsModalOpen] = useState(false);
 
   const initialValues: Omit<ChatFormData, "attachedFiles"> = {
     message: "",
@@ -54,7 +56,7 @@ export const MessageInput: React.FC = () => {
 
   const handleSubmit = async (
     values: typeof initialValues,
-    { resetForm }: any
+    { resetForm }: FormikHelpers<typeof initialValues>
   ) => {
     if (!values.message.trim()) return;
 
@@ -110,6 +112,7 @@ export const MessageInput: React.FC = () => {
         useRag: values.useRag,
         conversationId,
         attachedFiles: attachedFiles.map((f) => f.file),
+        documents: documents,
       });
 
       const assistantMessage: Message = {
@@ -131,6 +134,10 @@ export const MessageInput: React.FC = () => {
     setAttachedFiles(files);
   };
 
+  const handleRemoveDocument = (checksum: string) => {
+    dispatch(removeDocuments([checksum]));
+  };
+
   return (
     <div className="bg-white border-t border-gray-200 p-4">
       <Formik
@@ -138,11 +145,9 @@ export const MessageInput: React.FC = () => {
         validationSchema={validationSchema}
         onSubmit={handleSubmit}
       >
-        {({ values, setFieldValue, isValid }) => (
+        {({ values, isValid }) => (
           <Form>
-            {/* Controls Row */}
             <div className="flex items-center gap-4 mb-3 pb-3 border-b border-gray-100">
-              {/* Model Selection */}
               <div className="flex items-center gap-2">
                 <Settings className="w-4 h-4 text-gray-500" />
                 <Field
@@ -158,7 +163,6 @@ export const MessageInput: React.FC = () => {
                 </Field>
               </div>
 
-              {/* RAG Toggle */}
               <div className="flex items-center gap-2">
                 <Zap className="w-4 h-4 text-gray-500" />
                 <label className="flex items-center gap-2 text-sm text-gray-700">
@@ -171,39 +175,42 @@ export const MessageInput: React.FC = () => {
                 </label>
               </div>
 
-              {/* File Attachment */}
               <button
                 type="button"
                 onClick={() => setIsFileModalOpen(true)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors duration-200 bg-gray-50 text-gray-700 border border-gray-300 hover:bg-gray-100"
+              >
+                <Paperclip className="w-4 h-4" />
+                Attach
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsDocumentsModalOpen(true)}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors duration-200 ${
-                  attachedFiles.length > 0
+                  documents.length > 0
                     ? "bg-blue-100 text-blue-700 border border-blue-200"
                     : "bg-gray-50 text-gray-700 border border-gray-300 hover:bg-gray-100"
                 }`}
               >
-                <Paperclip className="w-4 h-4" />
-                {attachedFiles.length > 0
-                  ? `${attachedFiles.length} file(s)`
-                  : "Attach"}
+                <FileText className="w-4 h-4" />
+                {documents.length > 0 ? `${documents.length} saved` : "Browse"}
               </button>
             </div>
 
-            {/* Attached Files Preview */}
-            {attachedFiles.length > 0 && (
+            {documents.length > 0 && (
               <div className="mb-3">
                 <div className="flex flex-wrap gap-2">
-                  {attachedFiles.map((file, index) => (
+                  {documents.map((doc) => (
                     <div
-                      key={index}
+                      key={doc.checksum_sha256}
                       className="flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm"
                     >
-                      <span>{file.name}</span>
+                      <span>{doc.filename}</span>
                       <button
                         type="button"
                         onClick={() =>
-                          setAttachedFiles((files) =>
-                            files.filter((_, i) => i !== index)
-                          )
+                          handleRemoveDocument(doc.checksum_sha256)
                         }
                         className="text-blue-500 hover:text-blue-700"
                       >
@@ -215,7 +222,6 @@ export const MessageInput: React.FC = () => {
               </div>
             )}
 
-            {/* Message Input */}
             <div className="flex items-end gap-3">
               <div className="flex-1">
                 <Field
@@ -230,11 +236,12 @@ export const MessageInput: React.FC = () => {
                     target.style.height =
                       Math.min(target.scrollHeight, 120) + "px";
                   }}
-                  onKeyDown={(e: React.KeyboardEvent) => {
+                  onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
                       if (isValid && values.message.trim() && !isLoading) {
-                        e.currentTarget.form?.dispatchEvent(
+                        const textarea = e.currentTarget as HTMLTextAreaElement;
+                        textarea.form?.dispatchEvent(
                           new Event("submit", {
                             cancelable: true,
                             bubbles: true,
@@ -258,12 +265,16 @@ export const MessageInput: React.FC = () => {
         )}
       </Formik>
 
-      {/* File Attachment Modal */}
       <FileAttachmentModal
         isOpen={isFileModalOpen}
         onClose={() => setIsFileModalOpen(false)}
         onAttach={handleFileAttachment}
         currentFiles={attachedFiles}
+      />
+
+      <DocumentsModal
+        isOpen={isDocumentsModalOpen}
+        onClose={() => setIsDocumentsModalOpen(false)}
       />
     </div>
   );

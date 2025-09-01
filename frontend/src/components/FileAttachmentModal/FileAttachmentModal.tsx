@@ -1,8 +1,9 @@
 import { File, FileText, Table, Upload, X } from "lucide-react";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 import { Dialog } from "@headlessui/react";
 import type { FileAttachment } from "../../types";
+import { postDocuments } from "../../services/documentsService";
 
 interface FileAttachmentModalProps {
   isOpen: boolean;
@@ -48,6 +49,20 @@ export const FileAttachmentModal: React.FC<FileAttachmentModalProps> = ({
     "pdf" | "docx" | "xlsx"
   >("pdf");
   const [dragActive, setDragActive] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<FileAttachment[]>([]);
+
+  // Reset state when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedFiles([]);
+      setSelectedFileType("pdf");
+      setDragActive(false);
+      setIsUploading(false);
+      setUploadError(null);
+    }
+  }, [isOpen]);
 
   const handleFileSelect = (files: FileList | null) => {
     if (!files) return;
@@ -72,8 +87,7 @@ export const FileAttachmentModal: React.FC<FileAttachmentModalProps> = ({
       }
     });
 
-    onAttach([...currentFiles, ...newFiles]);
-    onClose();
+    setSelectedFiles((prev) => [...prev, ...newFiles]);
   };
 
   const handleDrag = (e: React.DragEvent) => {
@@ -105,8 +119,25 @@ export const FileAttachmentModal: React.FC<FileAttachmentModalProps> = ({
   };
 
   const removeFile = (index: number) => {
-    const newFiles = currentFiles.filter((_, i) => i !== index);
-    onAttach(newFiles);
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSave = async () => {
+    if (selectedFiles.length === 0) return;
+
+    try {
+      setUploadError(null);
+      setIsUploading(true);
+      await postDocuments(selectedFiles.map((f) => f.file));
+
+      // Update parent component with selected files
+      onAttach([...currentFiles, ...selectedFiles]);
+      onClose();
+    } catch {
+      setUploadError("Failed to upload files. Please try again.");
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
@@ -209,14 +240,14 @@ export const FileAttachmentModal: React.FC<FileAttachmentModalProps> = ({
               </p>
             </div>
 
-            {/* Current Files */}
-            {currentFiles.length > 0 && (
+            {/* Selected Files */}
+            {selectedFiles.length > 0 && (
               <div className="mt-6">
                 <h4 className="text-sm font-medium text-gray-700 mb-3">
-                  Selected Files ({currentFiles.length})
+                  Selected Files ({selectedFiles.length})
                 </h4>
                 <div className="space-y-2">
-                  {currentFiles.map((file, index) => {
+                  {selectedFiles.map((file, index) => {
                     const config = fileTypeConfig[file.type];
                     const IconComponent = config.icon;
 
@@ -250,6 +281,9 @@ export const FileAttachmentModal: React.FC<FileAttachmentModalProps> = ({
                 </div>
               </div>
             )}
+            {uploadError && (
+              <p className="mt-4 text-sm text-red-600">{uploadError}</p>
+            )}
           </div>
 
           <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50 rounded-b-xl">
@@ -260,11 +294,33 @@ export const FileAttachmentModal: React.FC<FileAttachmentModalProps> = ({
               Cancel
             </button>
             <button
-              onClick={onClose}
-              disabled={currentFiles.length === 0}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200"
+              onClick={handleSave}
+              disabled={selectedFiles.length === 0 || isUploading}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200 flex items-center gap-2"
             >
-              Done ({currentFiles.length} files)
+              {isUploading && (
+                <svg
+                  className="animate-spin h-4 w-4 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                  />
+                </svg>
+              )}
+              {isUploading ? "Uploading..." : "Save"}
             </button>
           </div>
         </Dialog.Panel>

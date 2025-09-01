@@ -1,3 +1,4 @@
+import type { DocumentItem } from "../services/documentsService";
 import { z } from "zod";
 
 export const MessageSchema = z.object({
@@ -36,6 +37,7 @@ export interface ChatState {
   conversations: Conversation[];
   activeConversationId: string | null;
   isLoading: boolean;
+  documents: DocumentItem[];
 }
 
 export interface FileAttachment {

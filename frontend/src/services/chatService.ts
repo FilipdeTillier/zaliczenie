@@ -1,4 +1,5 @@
 import type { ChatRequest } from "../types/chat.types";
+import type { DocumentItem } from "./documentsService";
 import type { Message } from "../types";
 import type { OllamaResponse } from "../types/ollamaResponse";
 import axios from "axios";
@@ -24,12 +25,14 @@ export const postLocalLLMMessageService = async (dataForm: ChatRequest) => {
 
 export const postToOpenAIChat = async (
   messages: Message[],
-  model: string = "gpt-3.5-turbo"
+  model: string = "gpt-3.5-turbo",
+  documents: DocumentItem[]
 ) => {
   try {
     const dataForm = {
       model,
       messages,
+      documents,
     };
     const { data } = await axios.post(
       "http://localhost:8080/open_ai/chat",
