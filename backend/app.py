@@ -3,6 +3,9 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from sentence_transformers import SentenceTransformer
+from const.env_variables import EMBEDDING_MODEL_NAME
+
 from controllers.qdrant_controller import router as vector_database_controller
 from controllers.config_controller import router as config_controller
 from controllers.ollama_controller import router as ollama_controller
@@ -34,4 +37,5 @@ app.add_middleware(
 
 
 if __name__ == "__main__":
+    SentenceTransformer(EMBEDDING_MODEL_NAME)
     uvicorn.run("app:app", host="0.0.0.0", port=8080, reload=True)

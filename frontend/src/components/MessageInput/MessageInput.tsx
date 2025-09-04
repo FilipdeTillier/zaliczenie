@@ -34,8 +34,6 @@ const validationSchema = Yup.object({
 const models = [
   { value: "gpt-4", label: "GPT-4" },
   { value: "gpt-3.5-turbo", label: "GPT-3.5 Turbo" },
-  { value: "claude-3", label: "Claude 3" },
-  { value: "gemini-pro", label: "Gemini Pro" },
 ];
 
 export const MessageInput: React.FC = () => {
@@ -161,18 +159,6 @@ export const MessageInput: React.FC = () => {
                     </option>
                   ))}
                 </Field>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Zap className="w-4 h-4 text-gray-500" />
-                <label className="flex items-center gap-2 text-sm text-gray-700">
-                  <Field
-                    type="checkbox"
-                    name="useRag"
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
-                  Use RAG
-                </label>
               </div>
 
               <button
