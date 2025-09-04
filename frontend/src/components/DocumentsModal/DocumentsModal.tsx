@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Dialog } from "@headlessui/react";
-import { FileText, X } from "lucide-react";
+import { FileText, X, Trash2 } from "lucide-react";
 import {
+  deleteDocument,
   getDocuments,
   type DocumentItem,
 } from "../../services/documentsService";
@@ -26,6 +27,9 @@ export const DocumentsModal: React.FC<DocumentsModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [selectedChecksums, setSelectedChecksums] = useState<Set<string>>(
     () => new Set(selectedDocuments.map((d) => d.checksum_sha256))
+  );
+  const [deletingChecksums, setDeletingChecksums] = useState<Set<string>>(
+    new Set()
   );
 
   useEffect(() => {
@@ -55,6 +59,39 @@ export const DocumentsModal: React.FC<DocumentsModalProps> = ({
       else next.add(checksum);
       return next;
     });
+  };
+
+  const handleDelete = async (checksum: string, filename: string) => {
+    try {
+      setDeletingChecksums((prev) => new Set(prev).add(checksum));
+
+      await deleteDocument(checksum, filename);
+
+      setDocumentsList((prev) =>
+        prev.filter((doc) => doc.checksum_sha256 !== checksum)
+      );
+
+      setSelectedChecksums((prev) => {
+        const next = new Set(prev);
+        next.delete(checksum);
+        return next;
+      });
+
+      const updatedSelectedDocuments = selectedDocuments.filter(
+        (doc) => doc.checksum_sha256 !== checksum
+      );
+      if (updatedSelectedDocuments.length !== selectedDocuments.length) {
+        dispatch(setDocuments(updatedSelectedDocuments));
+      }
+    } catch {
+      setError("Failed to delete file.");
+    } finally {
+      setDeletingChecksums((prev) => {
+        const next = new Set(prev);
+        next.delete(checksum);
+        return next;
+      });
+    }
   };
 
   const currentSelectedDocuments = useMemo(
@@ -116,10 +153,12 @@ export const DocumentsModal: React.FC<DocumentsModalProps> = ({
                   {documents.map((doc) => (
                     <li
                       key={doc.checksum_sha256}
-                      className="flex items-center justify-between p-3 hover:bg-gray-100 cursor-pointer transition-colors duration-150"
-                      onClick={() => toggleSelect(doc.checksum_sha256)}
+                      className="flex items-center justify-between p-3 hover:bg-gray-100 transition-colors duration-150"
                     >
-                      <div className="flex items-center gap-3">
+                      <div
+                        className="flex items-center gap-3 flex-1 cursor-pointer"
+                        onClick={() => toggleSelect(doc.checksum_sha256)}
+                      >
                         <FileText className="w-4 h-4 text-blue-600" />
                         <div>
                           <p className="text-sm font-medium text-gray-900">
@@ -130,15 +169,30 @@ export const DocumentsModal: React.FC<DocumentsModalProps> = ({
                           </p>
                         </div>
                       </div>
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 accent-blue-600"
-                        checked={selectedChecksums.has(doc.checksum_sha256)}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          toggleSelect(doc.checksum_sha256);
-                        }}
-                      />
+
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 accent-blue-600 cursor-pointer"
+                          checked={selectedChecksums.has(doc.checksum_sha256)}
+                          onChange={() => toggleSelect(doc.checksum_sha256)}
+                        />
+
+                        <button
+                          onClick={() =>
+                            handleDelete(doc.checksum_sha256, doc.filename)
+                          }
+                          disabled={deletingChecksums.has(doc.checksum_sha256)}
+                          className="p-1 text-gray-400 hover:text-red-600 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Delete file"
+                        >
+                          {deletingChecksums.has(doc.checksum_sha256) ? (
+                            <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
                     </li>
                   ))}
                 </ul>

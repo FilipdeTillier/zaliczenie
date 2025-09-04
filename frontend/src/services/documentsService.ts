@@ -36,3 +36,17 @@ export const getDocuments = async (): Promise<DocumentsResponse> => {
   );
   return data;
 };
+
+export const deleteDocument = async (checksum: string, filename: string) => {
+  const response = await axios.delete("http://localhost:8080/files/delete", {
+    headers: {
+      "Content-Type": "application/json",
+    },
+    data: {
+      checksum,
+      filename,
+    },
+  });
+
+  return response.data;
+};

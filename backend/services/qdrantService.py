@@ -88,8 +88,104 @@ class QdrantService:
         for i in range(0, len(points), 64):
             client.upsert(collection_name=QDRANT_COLLECTION, points=points[i:i + 64], wait=True)
         return len(points)
+        
+    def delete_points_by_checksum_and_filename(self, checksum_sha256: str, filename: str) -> int:
+        """
+        Remove all Qdrant points matching the given checksum_sha256 and filename.
 
+        Args:
+            checksum_sha256 (str): SHA-256 checksum to match.
+            filename (str): Filename to match.
 
+        Returns:
+            int: Number of points deleted.
+        """
+        if not checksum_sha256 or not filename:
+            raise ValueError("Both checksum_sha256 and filename are required.")
+
+        client = QdrantService.ensure_qdrant_ready()
+
+        # Build filter for Qdrant
+        filter_condition = qmodels.Filter(
+            must=[
+                qmodels.FieldCondition(
+                    key="checksum_sha256",
+                    match=qmodels.MatchValue(value=checksum_sha256)
+                ),
+                qmodels.FieldCondition(
+                    key="filename",
+                    match=qmodels.MatchValue(value=filename)
+                ),
+            ]
+        )
+
+        # Find matching points
+        scroll_res = client.scroll(
+            collection_name=QDRANT_COLLECTION,
+            scroll_filter=filter_condition,
+            with_payload=False,
+            with_vectors=False,
+            limit=10000  # reasonable upper bound; adjust if needed
+        )
+        point_ids = [point.id for point in scroll_res[0]]
+
+        if not point_ids:
+            return 0
+
+        # Delete points by id
+        client.delete(
+            collection_name=QDRANT_COLLECTION,
+            points_selector=qmodels.PointIdsList(points=point_ids),
+            wait=True
+        )
+        return len(point_ids)
+
+    def create_collection(self, collection_name: str, vector_size: int, distance: str = "Cosine") -> None:
+        """
+        Create a new collection in Qdrant with the specified parameters.
+
+        Args:
+            collection_name (str): Name of the collection to create.
+            vector_size (int): Size of the vectors to be stored.
+            distance (str): Distance metric to use ("Cosine", "Euclid", "Dot").
+
+        Raises:
+            ValueError: If collection_name or vector_size is invalid.
+            Exception: If Qdrant client fails to create the collection.
+        """
+        if not collection_name or not isinstance(collection_name, str):
+            raise ValueError("collection_name must be a non-empty string.")
+        if not isinstance(vector_size, int) or vector_size <= 0:
+            raise ValueError("vector_size must be a positive integer.")
+
+        client = QdrantService.ensure_qdrant_ready()
+
+        # Map string distance to Qdrant Distance enum
+        distance_map = {
+            "Cosine": qmodels.Distance.COSINE,
+            "Euclid": qmodels.Distance.EUCLID,
+            "Dot": qmodels.Distance.DOT
+        }
+        distance_enum = distance_map.get(distance, qmodels.Distance.COSINE)
+
+        try:
+            client.create_collection(
+                collection_name=collection_name,
+                vectors_config=qmodels.VectorParams(
+                    size=vector_size,
+                    distance=distance_enum
+                ),
+                optimizers_config=None,
+                shard_number=None,
+                on_disk_payload=None,
+                hnsw_config=None,
+                wal_config=None,
+                quantization_config=None,
+                replication_factor=None,
+                write_consistency_factor=None
+            )
+        except Exception as e:
+            raise Exception(f"Failed to create collection '{collection_name}': {str(e)}")
 
 
 

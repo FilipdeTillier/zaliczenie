@@ -8,9 +8,16 @@ from typing import List, Dict, Any
 from fastapi import HTTPException, UploadFile, BackgroundTasks
 from fastapi.responses import FileResponse
 from services.qdrantService import QdrantService
-from helpers.files_helper import list_saved_files, sha256_stream_to_tmp, storage_path_for_checksum
+from helpers.files_helper import list_saved_files, sha256_stream_to_tmp, storage_path_for_checksum, remove_file_by_checksum_and_filename
 from helpers.job_helper import  write_job, process_job
 from const.env_variables import  QDRANT_HOST, QDRANT_PORT, UPLOAD_DIR
+from fastapi import Body
+from pydantic import BaseModel
+
+class DeleteFileRequest(BaseModel):
+    checksum: str
+    filename: str
+
 
 qdrant_service = QdrantService(host=QDRANT_HOST, port=QDRANT_PORT)
 
@@ -60,6 +67,39 @@ async def upload(files: List[UploadFile], background_tasks: BackgroundTasks) -> 
     background_tasks.add_task(process_job, job_id, storage_keys_for_job)
 
     return {"job_id": job_id, "status": "queued", "count": len(saved_items), "items": saved_items}
+
+
+@router.delete("/files/delete")
+async def delete_file(
+    body: DeleteFileRequest = Body(...)
+) -> Dict[str, Any]:
+    checksum = body.checksum
+    filename = body.filename
+
+    missing = []
+    if not checksum:
+        missing.append("checksum")
+    if not filename:
+        missing.append("filename")
+    if missing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Missing required parameter(s): {', '.join(missing)}"
+        )
+    removed = remove_file_by_checksum_and_filename(checksum, filename)
+    try:
+        deleted_points = qdrant_service.delete_points_by_checksum_and_filename(checksum, filename)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to delete Qdrant points: {str(e)}"
+        )
+    if not removed:
+        raise HTTPException(
+            status_code=404,
+            detail="File not found or could not be deleted"
+        )
+    return {"status": "success", "message": f"File {filename} with checksum {checksum} deleted."}
 
 
 @router.get("/files")

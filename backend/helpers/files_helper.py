@@ -62,3 +62,25 @@ def sha256_stream_to_tmp(src_fobj) -> tuple[str, str, int]:
 def storage_path_for_checksum(checksum: str, filename: str) -> str:
     """Relatywna ścieżka: ab/cd/<hash>/<filename>"""
     return os.path.join(checksum[:2], checksum[2:4], checksum, filename)
+
+def remove_file_by_checksum_and_filename(checksum: str, filename: str) -> bool:
+    """
+    Removes a file from storage given its checksum and filename.
+
+    Args:
+        checksum (str): SHA-256 checksum of the file.
+        filename (str): Name of the file.
+
+    Returns:
+        bool: True if the file was removed, False if it did not exist.
+    """
+    rel_path = storage_path_for_checksum(checksum, filename)
+    abs_path = os.path.join(UPLOAD_DIR, rel_path)
+    try:
+        os.remove(abs_path)
+        return True
+    except FileNotFoundError:
+        return False
+    except Exception as e:
+        # Optionally log the error here
+        return False
