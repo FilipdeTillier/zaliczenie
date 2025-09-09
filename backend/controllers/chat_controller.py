@@ -58,14 +58,35 @@ async def open_ai_chat(request: OpenAIChatRequest):
             for hit in search_results:
                 payload = hit.payload
                 if payload and "chunk_text" in payload:
-                    context_chunks.append(payload["chunk_text"])
-            context = "\n\n".join(context_chunks)
+                    text_to_append = f"""
+                        =========================
+                        filename: {payload["filename"]}
+                        page_number: {payload["page_number"]}
+                        source_type: {payload["source_type"]}
+                        file_extension: {payload["file_extension"]}
+                        upload_timestamp: {payload["upload_timestamp"]}
+                        chunk_word_count: {payload["chunk_word_count"]}
+                        chunk_text: {payload["chunk_text"]}
+                        chunk_sentence_count: {payload["chunk_sentence_count"]}
+                        ========================="""
+                    context_chunks.append(text_to_append)
+                context = "\n\n".join(context_chunks)
 
             context_message = {
                 "role": "system",
                 "content": f"Relevant context from documents:\n{context}" if context else "No relevant context found."
             }
-            messages_with_context = [context_message] + messages
+
+            rule_messge = {
+                "role": "user",
+                "content": f"Remember, if you don't have the information, say that you don't have the information. Remember to add also page number and source file in your response. It could be usefull for the user to know the source of the information."
+            }
+            messages_with_context = [context_message] + messages + [rule_messge]
+
+            response_without_context = await open_ai_service.query_model(
+                model=request.model,
+                messages=messages,
+            )
 
             response = await open_ai_service.query_model(
                 model=request.model,

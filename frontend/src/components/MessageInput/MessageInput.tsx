@@ -7,7 +7,7 @@ import type {
   Message,
 } from "../../types";
 import { Field, Form, Formik, type FormikHelpers } from "formik";
-import { Paperclip, Send, Settings, Zap, FileText } from "lucide-react";
+import { Paperclip, Send, Settings, FileText } from "lucide-react";
 import React, { useState } from "react";
 import {
   addMessage,
@@ -15,6 +15,7 @@ import {
   setLoading,
   updateConversationTitle,
   removeDocuments,
+  setSelectedModel,
 } from "../../store/chatSlice";
 
 import { FileAttachmentModal } from "../FileAttachmentModal/FileAttachmentModal";
@@ -38,8 +39,13 @@ const models = [
 
 export const MessageInput: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { activeConversationId, conversations, isLoading, documents } =
-    useAppSelector((state) => state.chat);
+  const {
+    activeConversationId,
+    conversations,
+    isLoading,
+    documents,
+    selectedModel,
+  } = useAppSelector((state) => state.chat);
   const sendMessageMutation = useSendMessage();
 
   const [isFileModalOpen, setIsFileModalOpen] = useState(false);
@@ -48,7 +54,7 @@ export const MessageInput: React.FC = () => {
 
   const initialValues: Omit<ChatFormData, "attachedFiles"> = {
     message: "",
-    model: "gpt-3.5-turbo",
+    model: selectedModel,
     useRag: false,
   };
 
@@ -106,7 +112,7 @@ export const MessageInput: React.FC = () => {
     try {
       const response = await sendMessageMutation.mutateAsync({
         message: [...prevMessages, currentMessage],
-        model: values.model,
+        model: selectedModel,
         useRag: values.useRag,
         conversationId,
         attachedFiles: attachedFiles.map((f) => f.file),
@@ -148,16 +154,25 @@ export const MessageInput: React.FC = () => {
             <div className="flex items-center gap-4 mb-3 pb-3 border-b border-gray-100">
               <div className="flex items-center gap-2">
                 <Settings className="w-4 h-4 text-gray-500" />
-                <Field
-                  as="select"
-                  name="model"
-                  className="text-sm bg-gray-50 border border-gray-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  {models.map((model) => (
-                    <option key={model.value} value={model.value}>
-                      {model.label}
-                    </option>
-                  ))}
+                <Field name="model">
+                  {({ field, form }: any) => (
+                    <select
+                      {...field}
+                      value={selectedModel}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        form.setFieldValue("model", value);
+                        dispatch(setSelectedModel(value));
+                      }}
+                      className="text-sm bg-gray-50 border border-gray-300 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      {models.map((model) => (
+                        <option key={model.value} value={model.value}>
+                          {model.label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </Field>
               </div>
 

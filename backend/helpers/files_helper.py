@@ -1,12 +1,37 @@
 import os
 import mimetypes
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import uuid
 import hashlib
 from const.env_variables import UPLOAD_DIR, JOBS_DIR, TMP_DIR
 
 os.makedirs(TMP_DIR, exist_ok=True)
+
+def _find_job_for_storage_key(storage_key: str) -> Optional[Dict[str, str]]:
+    """Find job metadata for a given storage_key by scanning job files."""
+    try:
+        if not os.path.exists(JOBS_DIR):
+            return None
+        for fname in os.listdir(JOBS_DIR):
+            if not fname.endswith(".json"):
+                continue
+            job_path = os.path.join(JOBS_DIR, fname)
+            try:
+                with open(job_path, "r", encoding="utf-8") as jf:
+                    data = jf.read()
+                # Lazy import to avoid circulars
+                import json as _json
+                payload = _json.loads(data)
+            except Exception:
+                continue
+            items = payload.get("items", []) or []
+            if storage_key in items:
+                return {"job_id": payload.get("job_id"), "job_status": payload.get("status")}
+        return None
+    except Exception:
+        return None
+
 
 def list_saved_files() -> List[Dict[str, Any]]:
     items: List[Dict[str, Any]] = []
@@ -30,7 +55,7 @@ def list_saved_files() -> List[Dict[str, Any]]:
             except FileNotFoundError:
                 continue
             ctype, _ = mimetypes.guess_type(filename)
-            items.append({
+            item: Dict[str, Any] = {
                 "filename": filename,
                 "checksum_sha256": checksum,
                 "size_bytes": size,
@@ -38,7 +63,12 @@ def list_saved_files() -> List[Dict[str, Any]]:
                 "content_type": ctype or "application/octet-stream",
                 "created_at": datetime.utcfromtimestamp(mtime).isoformat(),
                 "download_url": f"/files/{checksum}/{filename}/download",
-            })
+            }
+            # Attach job info if available
+            job_info = _find_job_for_storage_key(item["storage_key"])
+            if job_info:
+                item.update(job_info)
+            items.append(item)
     items.sort(key=lambda x: x["created_at"], reverse=True)
     return items
 
