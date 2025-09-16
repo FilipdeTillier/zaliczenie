@@ -9,8 +9,7 @@ from const.env_variables import OLLAMA_BASE_URL, OLLAMA_HOST, OLLAMA_PORT, INIT_
 qdrant_service = QdrantService(host=OLLAMA_HOST, port=OLLAMA_PORT)
 
 router = APIRouter(
-    prefix="",
-    tags=[""]
+    prefix=""
 )
 
 async def pull_model(INIT_MODEL_NAME_VAL: str = INIT_MODEL_NAME_VAL):

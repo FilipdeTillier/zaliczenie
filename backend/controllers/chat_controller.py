@@ -13,11 +13,10 @@ from const.env_variables import QDRANT_COLLECTION
 from const.variables import qdrant_limit
 
 router = APIRouter(
-    prefix="",
-    tags=[""]
+    prefix=""
 )
 
-@router.post("/open_ai/chat")
+@router.post("/open_ai/chat", tags=["Chat"])
 async def open_ai_chat(request: OpenAIChatRequest):
     try:
         messages = [message.dict() for message in request.messages]

@@ -11,6 +11,7 @@ from controllers.config_controller import router as config_controller
 from controllers.ollama_controller import router as ollama_controller
 from controllers.files_controller import router as files_controller
 from controllers.chat_controller import router as chat_controller
+from controllers.jobs_controller import router as jobs_controller
 
 app = FastAPI(
     title="RAG API",
@@ -26,6 +27,7 @@ app.include_router(config_controller)
 app.include_router(ollama_controller)
 app.include_router(files_controller)
 app.include_router(chat_controller)
+app.include_router(jobs_controller)
 
 app.add_middleware(
     CORSMiddleware,

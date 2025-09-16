@@ -9,14 +9,26 @@ def custom_openapi(app: FastAPI):
         title="RAG API Documentation",
         version="1.0.0",
         description="""
-        This API provides endpoints for RAG (Retrieval-Augmented Generation) operations.
+        This API provides comprehensive endpoints for RAG (Retrieval-Augmented Generation) operations.
         
-        ## Features
-        * Document indexing and retrieval
-        * Vector similarity search
-        * LLM querying with and without RAG
-        * Model management
-        * Collection management
+        ## Core Features
+        * **Document Management**: Upload, download, and manage documents with automatic deduplication
+        * **Vector Search**: Advanced similarity search with metadata filtering capabilities
+        * **RAG Chat**: OpenAI-powered chat with document context retrieval
+        * **Model Management**: Ollama model operations including search, pull, and status monitoring
+        * **Collection Management**: Qdrant vector database collection operations
+        * **Background Processing**: Asynchronous document processing with job tracking
+        * **Metadata Analytics**: Collection statistics and document insights
+        
+        ## Key Endpoints
+        * **Health**: System status and service connectivity checks
+        * **Files**: Upload, download, delete, and list uploaded documents
+        * **Search**: Basic and advanced vector similarity search with filtering
+        * **Chat**: OpenAI chat with optional RAG document context
+        * **Models**: Ollama model search, pull, and management
+        * **Collections**: Qdrant collection creation and management
+        * **Jobs**: Background job status monitoring
+        * **Metadata**: Collection statistics and analytics
         
         ## Authentication
         Currently, this API does not require authentication.
@@ -24,7 +36,6 @@ def custom_openapi(app: FastAPI):
         routes=app.routes,
     )
 
-    # Add tags for better organization
     openapi_schema["tags"] = [
         {
             "name": "Health",
@@ -32,19 +43,31 @@ def custom_openapi(app: FastAPI):
         },
         {
             "name": "Collections",
-            "description": "Manage vector collections"
+            "description": "Manage vector collections in Qdrant"
         },
         {
             "name": "Models",
-            "description": "Manage and interact with LLM models"
+            "description": "Manage and interact with LLM models via Ollama"
         },
         {
-            "name": "Documents",
-            "description": "Document indexing and management"
+            "name": "Files",
+            "description": "File upload, download, and management operations"
         },
         {
             "name": "Search",
-            "description": "Search and query operations"
+            "description": "Vector similarity search and advanced search operations"
+        },
+        {
+            "name": "Metadata",
+            "description": "Collection metadata and statistics"
+        },
+        {
+            "name": "Chat",
+            "description": "OpenAI chat operations with RAG support"
+        },
+        {
+            "name": "Jobs",
+            "description": "Background job status and monitoring"
         }
     ]
 

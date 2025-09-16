@@ -6,8 +6,7 @@ from const.env_variables import OLLAMA_BASE_URL, MODEL_NAME_VAL, OLLAMA_HOST, OL
 qdrant_service = QdrantService(host=OLLAMA_HOST, port=OLLAMA_PORT)
 
 router = APIRouter(
-    prefix="",
-    tags=[""]
+    prefix=""
 )
 
 @router.get("/", tags=["Health"])

@@ -14,8 +14,7 @@ from const.variables import qdrant_limit
 qdrant_service = QdrantService(host=QDRANT_HOST, port=QDRANT_PORT)
 
 router = APIRouter(
-    prefix="",
-    tags=[""]
+    prefix=""
 )
 
 @router.get("/collections", tags=["Collections"])

@@ -88,7 +88,6 @@ def sha256_stream_to_tmp(src_fobj) -> tuple[str, str, int]:
 
 
 def storage_path_for_checksum(checksum: str, filename: str) -> str:
-    """Relatywna ścieżka: ab/cd/<hash>/<filename>"""
     return os.path.join(checksum[:2], checksum[2:4], checksum, filename)
 
 def remove_file_by_checksum_and_filename(checksum: str, filename: str) -> bool:
