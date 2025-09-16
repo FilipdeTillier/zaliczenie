@@ -171,27 +171,40 @@ export const DocumentsModal: React.FC<DocumentsModalProps> = ({
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          className="w-4 h-4 accent-blue-600 cursor-pointer"
-                          checked={selectedChecksums.has(doc.checksum_sha256)}
-                          onChange={() => toggleSelect(doc.checksum_sha256)}
-                        />
+                        {doc.job_status === "processing" ? (
+                          <div
+                            className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"
+                            title="Processing"
+                          />
+                        ) : (
+                          <>
+                            <input
+                              type="checkbox"
+                              className="w-4 h-4 accent-blue-600 cursor-pointer"
+                              checked={selectedChecksums.has(
+                                doc.checksum_sha256
+                              )}
+                              onChange={() => toggleSelect(doc.checksum_sha256)}
+                            />
 
-                        <button
-                          onClick={() =>
-                            handleDelete(doc.checksum_sha256, doc.filename)
-                          }
-                          disabled={deletingChecksums.has(doc.checksum_sha256)}
-                          className="p-1 text-gray-400 hover:text-red-600 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Delete file"
-                        >
-                          {deletingChecksums.has(doc.checksum_sha256) ? (
-                            <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
-                          ) : (
-                            <Trash2 className="w-4 h-4" />
-                          )}
-                        </button>
+                            <button
+                              onClick={() =>
+                                handleDelete(doc.checksum_sha256, doc.filename)
+                              }
+                              disabled={deletingChecksums.has(
+                                doc.checksum_sha256
+                              )}
+                              className="p-1 text-gray-400 hover:text-red-600 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Delete file"
+                            >
+                              {deletingChecksums.has(doc.checksum_sha256) ? (
+                                <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                              ) : (
+                                <Trash2 className="w-4 h-4" />
+                              )}
+                            </button>
+                          </>
+                        )}
                       </div>
                     </li>
                   ))}

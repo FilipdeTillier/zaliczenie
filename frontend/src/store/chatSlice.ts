@@ -9,6 +9,7 @@ const initialState: ChatState = {
   activeConversationId: null,
   isLoading: false,
   documents: [],
+  selectedModel: "gpt-3.5-turbo",
 };
 
 const chatSlice = createSlice({
@@ -36,6 +37,9 @@ const chatSlice = createSlice({
     },
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.isLoading = action.payload;
+    },
+    setSelectedModel: (state, action: PayloadAction<string>) => {
+      state.selectedModel = action.payload;
     },
     updateConversationTitle: (
       state,
@@ -77,6 +81,7 @@ export const {
   createConversation,
   addMessage,
   setLoading,
+  setSelectedModel,
   updateConversationTitle,
   addDocuments,
   removeDocuments,

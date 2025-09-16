@@ -8,6 +8,8 @@ export interface DocumentItem {
   content_type: string;
   created_at: string;
   download_url: string;
+  job_id: string;
+  job_status: "processing" | "completed";
 }
 
 export interface DocumentsResponse {

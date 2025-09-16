@@ -38,6 +38,7 @@ export interface ChatState {
   activeConversationId: string | null;
   isLoading: boolean;
   documents: DocumentItem[];
+  selectedModel: string;
 }
 
 export interface FileAttachment {

@@ -66,7 +66,7 @@ async def upload(files: List[UploadFile], background_tasks: BackgroundTasks) -> 
     write_job(job_id, {"job_id": job_id, "status": "queued", "items": storage_keys_for_job})
     background_tasks.add_task(process_job, job_id, storage_keys_for_job)
 
-    return {"job_id": job_id, "status": "queued", "count": len(saved_items), "items": saved_items}
+    return {"job_id": job_id, "job_status": "queued", "count": len(saved_items), "items": saved_items}
 
 
 @router.delete("/files/delete")

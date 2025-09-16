@@ -2,9 +2,10 @@ from helpers.embeding_helper import embed_texts, get_model_dim
 from qdrant_client import QdrantClient,  models as qmodels
 import uuid
 import os
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import mimetypes
 from const.env_variables import VECTOR_SIZE, QDRANT_COLLECTION_NAME, QDRANT_PORT, QDRANT_URL, QDRANT_COLLECTION, QDRANT_RECREATE_ON_MISMATCH
+from datetime import datetime
 
 _qdrant: Optional[QdrantClient] = None
 
@@ -56,7 +57,11 @@ class QdrantService:
                     )
         return _qdrant
 
-    def upsert_chunks_to_qdrant(self, storage_key: str, chunks: List[str]) -> int:
+    def get_collections(self) -> List[str]:
+        """Get list of all collection names."""
+        return [collection.name for collection in self.client.get_collections().collections]
+
+    def upsert_chunks_to_qdrant(self, storage_key: str, chunks: List[str], metadata_list: Optional[List[Dict[str, Any]]] = None, job_id: Optional[str] = None) -> int:
         if not chunks:
             return 0
 
@@ -73,6 +78,9 @@ class QdrantService:
 
         points = []
         for idx, (vec, text) in enumerate(zip(vectors, chunks)):
+            # Get metadata for this chunk if available
+            chunk_metadata = metadata_list[idx] if metadata_list and idx < len(metadata_list) else {}
+            
             payload = {
                 "checksum_sha256": checksum,
                 "storage_key": storage_key,
@@ -82,6 +90,16 @@ class QdrantService:
                 "chunk_index": idx,
                 "chunk_text": text,
                 "chunk_char_count": len(text),
+                "job_id": job_id,
+                # New metadata fields
+                "page_number": chunk_metadata.get("page_number"),
+                "source_type": chunk_metadata.get("source_type", "unknown"),
+                "chunk_size": chunk_metadata.get("chunk_size", len(text)),
+                # Additional metadata fields
+                "file_extension": os.path.splitext(filename)[1].lower(),
+                "upload_timestamp": datetime.utcnow().isoformat(),
+                "chunk_word_count": len(text.split()),
+                "chunk_sentence_count": len([s for s in text.split('.') if s.strip()]),
             }
             points.append(qmodels.PointStruct(id=str(uuid.uuid4()), vector=vec, payload=payload))
 
