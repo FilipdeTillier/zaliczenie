@@ -1,11 +1,15 @@
-from helpers.embeding_helper import embed_texts, get_model_dim
-from qdrant_client import QdrantClient,  models as qmodels
 import uuid
 import os
-from typing import List, Optional, Dict, Any
+import asyncio
 import mimetypes
-from const.env_variables import VECTOR_SIZE, QDRANT_COLLECTION_NAME, QDRANT_PORT, QDRANT_URL, QDRANT_COLLECTION, QDRANT_RECREATE_ON_MISMATCH
 from datetime import datetime
+from typing import List, Optional, Dict, Any
+
+from qdrant_client import QdrantClient,  models as qmodels
+
+from helpers.embeding_helper import embed_texts, embed_texts_openai, get_model_dim
+
+from const.env_variables import VECTOR_SIZE, QDRANT_COLLECTION_NAME, QDRANT_PORT, QDRANT_URL, QDRANT_COLLECTION, QDRANT_RECREATE_ON_MISMATCH
 
 _qdrant: Optional[QdrantClient] = None
 
@@ -21,13 +25,13 @@ class QdrantService:
         self.collection_name = collection_name
         self.client = QdrantClient(host=host, port=port)
 
-    def ensure_qdrant_ready() -> QdrantClient:
+    def ensure_qdrant_ready(use_openai: bool = False) -> QdrantClient:
         """Zapewnia istnienie kolekcji z właściwym wymiarem (= wymiar modelu)."""
         global _qdrant
         if _qdrant is None:
             _qdrant = QdrantClient(url=QDRANT_URL)
-
-        model_dim = get_model_dim()
+        
+        model_dim = get_model_dim(use_openai=use_openai)
 
         if not _qdrant.collection_exists(QDRANT_COLLECTION):
             _qdrant.create_collection(
@@ -61,7 +65,7 @@ class QdrantService:
         """Get list of all collection names."""
         return [collection.name for collection in self.client.get_collections().collections]
 
-    def upsert_chunks_to_qdrant(self, storage_key: str, chunks: List[str], metadata_list: Optional[List[Dict[str, Any]]] = None, job_id: Optional[str] = None) -> int:
+    def upsert_chunks_to_qdrant(self, storage_key: str, chunks: List[str], metadata_list: Optional[List[Dict[str, Any]]] = None, job_id: Optional[str] = None, use_openai: bool = True) -> int:
         if not chunks:
             return 0
 
@@ -70,15 +74,18 @@ class QdrantService:
         filename = info["filename"]
         ctype, _ = mimetypes.guess_type(filename)
 
-        vectors = embed_texts(chunks)
+        if use_openai:
+            vectors = asyncio.run(embed_texts_openai(chunks))
+        else:
+            vectors = embed_texts(chunks)
+        
         if not vectors:
             return 0
 
-        client = QdrantService.ensure_qdrant_ready()
+        client = QdrantService.ensure_qdrant_ready(use_openai=use_openai)
 
         points = []
         for idx, (vec, text) in enumerate(zip(vectors, chunks)):
-            # Get metadata for this chunk if available
             chunk_metadata = metadata_list[idx] if metadata_list and idx < len(metadata_list) else {}
             
             payload = {
@@ -91,11 +98,9 @@ class QdrantService:
                 "chunk_text": text,
                 "chunk_char_count": len(text),
                 "job_id": job_id,
-                # New metadata fields
                 "page_number": chunk_metadata.get("page_number"),
                 "source_type": chunk_metadata.get("source_type", "unknown"),
                 "chunk_size": chunk_metadata.get("chunk_size", len(text)),
-                # Additional metadata fields
                 "file_extension": os.path.splitext(filename)[1].lower(),
                 "upload_timestamp": datetime.utcnow().isoformat(),
                 "chunk_word_count": len(text.split()),
@@ -121,9 +126,8 @@ class QdrantService:
         if not checksum_sha256 or not filename:
             raise ValueError("Both checksum_sha256 and filename are required.")
 
-        client = QdrantService.ensure_qdrant_ready()
+        client = QdrantService.ensure_qdrant_ready(use_openai=True)
 
-        # Build filter for Qdrant
         filter_condition = qmodels.Filter(
             must=[
                 qmodels.FieldCondition(
@@ -137,20 +141,18 @@ class QdrantService:
             ]
         )
 
-        # Find matching points
         scroll_res = client.scroll(
             collection_name=QDRANT_COLLECTION,
             scroll_filter=filter_condition,
             with_payload=False,
             with_vectors=False,
-            limit=10000  # reasonable upper bound; adjust if needed
+            limit=10000
         )
         point_ids = [point.id for point in scroll_res[0]]
 
         if not point_ids:
             return 0
 
-        # Delete points by id
         client.delete(
             collection_name=QDRANT_COLLECTION,
             points_selector=qmodels.PointIdsList(points=point_ids),
@@ -176,9 +178,8 @@ class QdrantService:
         if not isinstance(vector_size, int) or vector_size <= 0:
             raise ValueError("vector_size must be a positive integer.")
 
-        client = QdrantService.ensure_qdrant_ready()
+        client = QdrantService.ensure_qdrant_ready(use_openai=True)
 
-        # Map string distance to Qdrant Distance enum
         distance_map = {
             "Cosine": qmodels.Distance.COSINE,
             "Euclid": qmodels.Distance.EUCLID,

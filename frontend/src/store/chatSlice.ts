@@ -9,7 +9,7 @@ const initialState: ChatState = {
   activeConversationId: null,
   isLoading: false,
   documents: [],
-  selectedModel: "gpt-3.5-turbo",
+  selectedModel: "gpt-4o-mini",
 };
 
 const chatSlice = createSlice({

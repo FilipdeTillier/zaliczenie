@@ -25,7 +25,7 @@ export const postLocalLLMMessageService = async (dataForm: ChatRequest) => {
 
 export const postToOpenAIChat = async (
   messages: Message[],
-  model: string = "gpt-3.5-turbo",
+  model: string = "gpt-4o-mini",
   documents: DocumentItem[]
 ) => {
   try {

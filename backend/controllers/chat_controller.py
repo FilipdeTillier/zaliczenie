@@ -3,20 +3,20 @@ from fastapi import HTTPException, APIRouter
 from services.qdrantService import QdrantService
 from services.openAiService import open_ai_service
 
-from helpers.embeding_helper import embed_texts
+from helpers.embeding_helper import embed_texts, embed_texts_openai
 
 from qdrant_client import models as qmodels
 
 from models.openai_response import OpenAIChatRequest
 
 from const.env_variables import QDRANT_COLLECTION
+from const.variables import qdrant_limit
 
 router = APIRouter(
-    prefix="",
-    tags=[""]
+    prefix=""
 )
 
-@router.post("/open_ai/chat")
+@router.post("/open_ai/chat", tags=["Chat"])
 async def open_ai_chat(request: OpenAIChatRequest):
     try:
         messages = [message.dict() for message in request.messages]
@@ -39,14 +39,14 @@ async def open_ai_chat(request: OpenAIChatRequest):
                 should=must_conditions
             ) if must_conditions else None
 
-            [query_vec] = embed_texts([query])
+            [query_vec] = await embed_texts_openai([query])
 
-            client = QdrantService.ensure_qdrant_ready()
+            client = QdrantService.ensure_qdrant_ready(use_openai=True)
 
             search_params = {
                 "collection_name": QDRANT_COLLECTION,
                 "query_vector": query_vec,
-                "limit": request.max_results or 5,
+                "limit": qdrant_limit,
                 "with_payload": True,
             }
             if filter_condition:
@@ -70,7 +70,7 @@ async def open_ai_chat(request: OpenAIChatRequest):
                         chunk_sentence_count: {payload["chunk_sentence_count"]}
                         ========================="""
                     context_chunks.append(text_to_append)
-                context = "\n\n".join(context_chunks)
+            context = "\n\n".join(context_chunks)
 
             context_message = {
                 "role": "system",
@@ -79,7 +79,7 @@ async def open_ai_chat(request: OpenAIChatRequest):
 
             rule_messge = {
                 "role": "user",
-                "content": f"Remember, if you don't have the information, say that you don't have the information. Remember to add also page number and source file in your response. It could be usefull for the user to know the source of the information."
+                "content": f"Remember, if you don't have the information, say that you don't have the information. Remember to add also page number and source file in your response. It could be usefull for the user to know the source of the information. Always response in the same language as the user's message."
             }
             messages_with_context = [context_message] + messages + [rule_messge]
 

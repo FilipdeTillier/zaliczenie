@@ -9,6 +9,7 @@ INIT_MODEL_NAME_VAL = os.getenv("INIT_MODEL_NAME_VAL", "SpeakLeash/bielik-7b-ins
 EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-mpnet-base-v2")
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_EMBEDDING_MODEL = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
 
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/data/uploads")
 JOBS_DIR = os.path.join(UPLOAD_DIR, ".jobs")

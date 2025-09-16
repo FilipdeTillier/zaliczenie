@@ -22,11 +22,10 @@ class DeleteFileRequest(BaseModel):
 qdrant_service = QdrantService(host=QDRANT_HOST, port=QDRANT_PORT)
 
 router = APIRouter(
-    prefix="",
-    tags=[""]
+    prefix=""
 )
 
-@router.post("/upload")
+@router.post("/upload", tags=["Files"])
 async def upload(files: List[UploadFile], background_tasks: BackgroundTasks) -> Dict[str, Any]:
     if not files:
         raise HTTPException(status_code=400, detail="No files provided")
@@ -69,7 +68,7 @@ async def upload(files: List[UploadFile], background_tasks: BackgroundTasks) -> 
     return {"job_id": job_id, "job_status": "queued", "count": len(saved_items), "items": saved_items}
 
 
-@router.delete("/files/delete")
+@router.delete("/files/delete", tags=["Files"])
 async def delete_file(
     body: DeleteFileRequest = Body(...)
 ) -> Dict[str, Any]:
@@ -102,12 +101,12 @@ async def delete_file(
     return {"status": "success", "message": f"File {filename} with checksum {checksum} deleted."}
 
 
-@router.get("/files")
+@router.get("/files", tags=["Files"])
 async def files_list():
     items = list_saved_files()
     return {"count": len(items), "items": items}
 
-@router.get("/files/{checksum}/{filename}/download")
+@router.get("/files/{checksum}/{filename}/download", tags=["Files"])
 async def download_file(checksum: str, filename: str):
     rel_path = storage_path_for_checksum(checksum, filename)
     abs_path = os.path.join(UPLOAD_DIR, rel_path)
