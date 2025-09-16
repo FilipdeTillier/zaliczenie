@@ -6,9 +6,10 @@ from services.qdrantService import QdrantService
 
 from qdrant_client import models as qmodels
 
-from helpers.embeding_helper import embed_texts
+from helpers.embeding_helper import embed_texts, embed_texts_openai
 
 from const.env_variables import  QDRANT_HOST, QDRANT_PORT, QDRANT_COLLECTION
+from const.variables import qdrant_limit
 
 qdrant_service = QdrantService(host=QDRANT_HOST, port=QDRANT_PORT)
 
@@ -56,14 +57,14 @@ async def create_collection(collection: Collection):
 @router.post("/search", tags=["Search"])
 async def search_post(
     query: str = Body(..., embed=True, min_length=1, description="Zapytanie tekstowe"),
-    top_k: int = Body(5, embed=True, ge=1, le=50),
+    top_k: int = Body(qdrant_limit, embed=True, ge=1, le=50),
     collection_name: Optional[str] = Body(None, embed=True),
     checksum: Optional[str] = Body(None, embed=True, description="Zawęź do jednego dokumentu po checksumie"),
     filename: Optional[str] = Body(None, embed=True, description="Albo zawęź po nazwie pliku"),
     score_threshold: Optional[float] = Body(None, embed=True, description="Minimalny wynik podobieństwa, np. 0.35"),
 ):
     try:
-        [query_vec] = embed_texts([query])
+        [query_vec] = await embed_texts_openai([query])
 
         must = []
         if checksum:
@@ -78,7 +79,7 @@ async def search_post(
             ))
         flt = qmodels.Filter(must=must) if must else None
 
-        client = QdrantService.ensure_qdrant_ready()
+        client = QdrantService.ensure_qdrant_ready(use_openai=True)
 
         hits = client.search(
             collection_name=collection_name or QDRANT_COLLECTION,
@@ -134,22 +135,20 @@ async def get_metadata_stats(
     Get metadata statistics about the documents in the collection.
     """
     try:
-        client = QdrantService.ensure_qdrant_ready()
+        client = QdrantService.ensure_qdrant_ready(use_openai=True)
         collection = collection_name or QDRANT_COLLECTION
         
-        # Get all points to analyze metadata
         scroll_res = client.scroll(
             collection_name=collection,
             with_payload=True,
             with_vectors=False,
-            limit=10000  # reasonable upper bound
+            limit=10000
         )
         
         points = scroll_res[0]
         if not points:
             return {"collection": collection, "stats": {"total_points": 0}}
         
-        # Analyze metadata
         stats = {
             "total_points": len(points),
             "source_types": {},
@@ -162,30 +161,24 @@ async def get_metadata_stats(
         for point in points:
             payload = point.payload or {}
             
-            # Count source types
             source_type = payload.get("source_type", "unknown")
             stats["source_types"][source_type] = stats["source_types"].get(source_type, 0) + 1
             
-            # Count file extensions
             file_ext = payload.get("file_extension", "unknown")
             stats["file_extensions"][file_ext] = stats["file_extensions"].get(file_ext, 0) + 1
             
-            # Count page numbers (only for documents with page numbers)
             page_num = payload.get("page_number")
             if page_num is not None:
                 stats["page_numbers"][str(page_num)] = stats["page_numbers"].get(str(page_num), 0) + 1
             
-            # Count unique files
             checksum = payload.get("checksum_sha256")
             filename = payload.get("filename")
             if checksum and filename:
                 stats["unique_files"].add(f"{checksum}_{filename}")
         
-        # Convert set to count
         stats["total_files"] = len(stats["unique_files"])
         del stats["unique_files"]
-        
-        # Sort page numbers numerically
+    
         if stats["page_numbers"]:
             sorted_pages = sorted(stats["page_numbers"].keys(), key=int)
             stats["page_numbers"] = {page: stats["page_numbers"][page] for page in sorted_pages}
@@ -213,7 +206,7 @@ async def advanced_search(
     Advanced search with metadata filtering capabilities.
     """
     try:
-        [query_vec] = embed_texts([query])
+        [query_vec] = await embed_texts_openai([query])
 
         must = []
         if checksum:
@@ -244,7 +237,7 @@ async def advanced_search(
             
         flt = qmodels.Filter(must=must) if must else None
 
-        client = QdrantService.ensure_qdrant_ready()
+        client = QdrantService.ensure_qdrant_ready(use_openai=True)
 
         hits = client.search(
             collection_name=collection_name or QDRANT_COLLECTION,
@@ -265,7 +258,6 @@ async def advanced_search(
                 "storage_key": p.get("storage_key"),
                 "chunk_index": p.get("chunk_index"),
                 "chunk_text": p.get("chunk_text", ""),
-                # New metadata fields
                 "page_number": p.get("page_number"),
                 "source_type": p.get("source_type"),
                 "chunk_size": p.get("chunk_size"),

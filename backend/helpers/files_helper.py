@@ -20,7 +20,6 @@ def _find_job_for_storage_key(storage_key: str) -> Optional[Dict[str, str]]:
             try:
                 with open(job_path, "r", encoding="utf-8") as jf:
                     data = jf.read()
-                # Lazy import to avoid circulars
                 import json as _json
                 payload = _json.loads(data)
             except Exception:
@@ -64,7 +63,6 @@ def list_saved_files() -> List[Dict[str, Any]]:
                 "created_at": datetime.utcfromtimestamp(mtime).isoformat(),
                 "download_url": f"/files/{checksum}/{filename}/download",
             }
-            # Attach job info if available
             job_info = _find_job_for_storage_key(item["storage_key"])
             if job_info:
                 item.update(job_info)
@@ -112,5 +110,4 @@ def remove_file_by_checksum_and_filename(checksum: str, filename: str) -> bool:
     except FileNotFoundError:
         return False
     except Exception as e:
-        # Optionally log the error here
         return False

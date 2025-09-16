@@ -22,10 +22,9 @@ def chunk_file(abs_path: str, chunk_size: int = 1000, overlap: int = 200) -> Lis
         parts = splitter.split_documents(docs)
         chunks = []
         for part in parts:
-            # Extract page number from metadata if available
             page_number = part.metadata.get('page', None)
             if page_number is not None:
-                page_number = int(page_number) + 1  # Convert to 1-based indexing
+                page_number = int(page_number) + 1 
             else:
                 page_number = None
                 
@@ -46,7 +45,6 @@ def chunk_file(abs_path: str, chunk_size: int = 1000, overlap: int = 200) -> Lis
             parts = splitter.split_documents(docs)
             chunks = []
             for part in parts:
-                # Word documents typically don't have page numbers in metadata
                 chunks.append({
                     "text": part.page_content,
                     "metadata": {
@@ -57,7 +55,6 @@ def chunk_file(abs_path: str, chunk_size: int = 1000, overlap: int = 200) -> Lis
                 })
             return chunks
         except Exception:
-            # Fallback to text extraction if Word loader fails
             return chunk_file_as_text(abs_path, splitter, "word")
             
     elif extension in {".pptx", ".ppt"}:
@@ -67,7 +64,6 @@ def chunk_file(abs_path: str, chunk_size: int = 1000, overlap: int = 200) -> Lis
             parts = splitter.split_documents(docs)
             chunks = []
             for part in parts:
-                # PowerPoint slides might have slide numbers
                 slide_number = part.metadata.get('slide_number', None)
                 chunks.append({
                     "text": part.page_content,
@@ -79,7 +75,6 @@ def chunk_file(abs_path: str, chunk_size: int = 1000, overlap: int = 200) -> Lis
                 })
             return chunks
         except Exception:
-            # Fallback to text extraction if PowerPoint loader fails
             return chunk_file_as_text(abs_path, splitter, "powerpoint")
             
     elif extension in {".txt", ".md", ".rtf", ".csv"}:

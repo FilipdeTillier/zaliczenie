@@ -42,12 +42,10 @@ def process_job(job_id: str, storage_keys: List[str]) -> None:
         for key in storage_keys:
             abs_path = os.path.join(UPLOAD_DIR, key)
             chunks_with_metadata = chunk_file(abs_path)
-            # Extract just the text content for the existing upsert method
             chunks = [chunk["text"] for chunk in chunks_with_metadata]
-            # Store metadata for later use in Qdrant
             metadata_list = [chunk["metadata"] for chunk in chunks_with_metadata]
             
-            upserted = qdrant_service.upsert_chunks_to_qdrant(key, chunks, metadata_list, job_id=job_id)
+            upserted = qdrant_service.upsert_chunks_to_qdrant(key, chunks, metadata_list, job_id=job_id, use_openai=True)
             total_chunks += len(chunks)
             total_upserted += upserted
             per_file.append({"storage_key": key, "chunks": len(chunks), "upserted": upserted})
