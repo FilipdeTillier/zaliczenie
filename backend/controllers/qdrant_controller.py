@@ -9,7 +9,7 @@ from qdrant_client import models as qmodels
 from helpers.embeding_helper import embed_texts, embed_texts_openai
 
 from const.env_variables import  QDRANT_HOST, QDRANT_PORT, QDRANT_COLLECTION
-from const.variables import qdrant_limit
+from const.variables import qdrant_limit, scroll_limit
 
 qdrant_service = QdrantService(host=QDRANT_HOST, port=QDRANT_PORT)
 
@@ -141,7 +141,7 @@ async def get_metadata_stats(
             collection_name=collection,
             with_payload=True,
             with_vectors=False,
-            limit=10000
+            limit=scroll_limit
         )
         
         points = scroll_res[0]

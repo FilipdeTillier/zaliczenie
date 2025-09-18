@@ -56,7 +56,7 @@ export const ChatWindow: React.FC = () => {
         ) : (
           <div className="max-w-4xl mx-auto p-4 space-y-6">
             {activeConversation.messages.map((message) => (
-              <ChatMessage message={message} />
+              <ChatMessage key={message.id} message={message} />
             ))}
             {isLoading && <ChatLoading />}
             <div ref={messagesEndRef} />

@@ -1,3 +1,4 @@
+import os
 from fastapi import HTTPException, APIRouter
 
 from services.qdrantService import QdrantService
@@ -11,6 +12,8 @@ from models.openai_response import OpenAIChatRequest
 
 from const.env_variables import QDRANT_COLLECTION
 from const.variables import qdrant_limit
+
+from helpers.files_helper import load_prompt
 
 router = APIRouter(
     prefix=""
@@ -81,22 +84,40 @@ async def open_ai_chat(request: OpenAIChatRequest):
                 "role": "user",
                 "content": f"Remember, if you don't have the information, say that you don't have the information. Remember to add also page number and source file in your response. It could be usefull for the user to know the source of the information. Always response in the same language as the user's message."
             }
-            messages_with_context = [context_message] + messages + [rule_messge]
+
+            messages_without_context = [rule_messge] + messages
+
+            messages_with_context = [context_message] + messages_without_context
 
             response_without_context = await open_ai_service.query_model(
                 model=request.model,
-                messages=messages,
+                messages=messages_without_context,
             )
 
             response = await open_ai_service.query_model(
                 model=request.model,
                 messages=messages_with_context,
             )
+
+            judge_prompt = load_prompt("llm_as_a_judge_prompt.md")
+            # Should return decision, if the response with context is ok or no. If no, return the reason why.
+            judge_response = await open_ai_service.query_model(
+                model=request.model,
+                messages=[{
+                    "role": "system",
+                    "content": judge_prompt
+                }, {
+                    "role": "user",
+                    "content": f"Response: {response}\n\nResponse without context: {response_without_context}"
+                }]
+            )
+
+            return {"response": judge_response}
         else:
             response = await open_ai_service.query_model(
                 model=request.model,
                 messages=messages,
             )
-        return {"response": response}
+            return {"response": response}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"OpenAI chat failed: {str(e)}")

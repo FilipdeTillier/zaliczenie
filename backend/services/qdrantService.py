@@ -10,6 +10,7 @@ from qdrant_client import QdrantClient,  models as qmodels
 from helpers.embeding_helper import embed_texts, embed_texts_openai, get_model_dim
 
 from const.env_variables import VECTOR_SIZE, QDRANT_COLLECTION_NAME, QDRANT_PORT, QDRANT_URL, QDRANT_COLLECTION, QDRANT_RECREATE_ON_MISMATCH
+from const.variables import scroll_limit
 
 _qdrant: Optional[QdrantClient] = None
 
@@ -146,7 +147,7 @@ class QdrantService:
             scroll_filter=filter_condition,
             with_payload=False,
             with_vectors=False,
-            limit=10000
+            limit=scroll_limit  
         )
         point_ids = [point.id for point in scroll_res[0]]
 

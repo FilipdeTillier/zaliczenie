@@ -1,5 +1,6 @@
 import { Bot, User } from "lucide-react";
 
+import { FormattedText } from "../../../helpers/textFormatter.tsx";
 import type { Message } from "../../../types";
 import React from "react";
 
@@ -34,9 +35,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
               : "bg-white shadow-sm border border-gray-200"
           }`}
         >
-          <p className="text-sm leading-relaxed whitespace-pre-wrap">
-            {message.content}
-          </p>
+          <FormattedText text={message.content} />
         </div>
         <p
           className={`text-xs text-gray-500 mt-2 ${

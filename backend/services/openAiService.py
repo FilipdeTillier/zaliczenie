@@ -13,6 +13,7 @@ class OpenAIService:
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
         stream: bool = False,
+        response_format: Optional[str] = None,
         **kwargs
     ) -> Dict[str, Any]:
         try:

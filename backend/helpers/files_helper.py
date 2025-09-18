@@ -110,3 +110,28 @@ def remove_file_by_checksum_and_filename(checksum: str, filename: str) -> bool:
         return False
     except Exception as e:
         return False
+
+def load_prompt(prompt_filename: str) -> str:
+    """
+    Loads a prompt file from the prompts directory.
+
+    Args:
+        prompt_filename (str): The name of the prompt file to load.
+
+    Returns:
+        str: The contents of the prompt file.
+
+    Raises:
+        FileNotFoundError: If the prompt file does not exist.
+        Exception: For other IO errors.
+    """
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    prompts_dir = os.path.join(current_dir, "..", "prompts")
+    prompt_path = os.path.join(prompts_dir, prompt_filename)
+    try:
+        with open(prompt_path, "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Prompt file '{prompt_filename}' not found in '{prompts_dir}'.")
+    except Exception as e:
+        raise Exception(f"Error loading prompt file '{prompt_filename}': {str(e)}")
