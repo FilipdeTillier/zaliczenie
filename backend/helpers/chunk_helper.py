@@ -3,10 +3,12 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader, UnstructuredWordDocumentLoader, UnstructuredPowerPointLoader
 from typing import List, Dict, Any, Tuple
 
+from const.variables import chunk_size, overlap
+
 def get_text_splitter(chunk_size: int = 1000, overlap: int = 200) -> RecursiveCharacterTextSplitter:
     return RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=overlap)
 
-def chunk_file(abs_path: str, chunk_size: int = 1000, overlap: int = 200) -> List[Dict[str, Any]]:
+def chunk_file(abs_path: str, chunk_size: int = chunk_size, overlap: int = overlap) -> List[Dict[str, Any]]:
     """
     Chunk a file and return chunks with metadata including page numbers.
     
